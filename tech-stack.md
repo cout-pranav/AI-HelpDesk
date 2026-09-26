@@ -9,7 +9,7 @@
 - React Router for client-side routing
 
 ## Auth
-- Database-backed session auth for admin/agent accounts only (session record in SQL Server, session ID in an HTTP-only cookie)
+- JWT-based auth for admin/agent accounts only (role claims: `admin`, `agent`)
 - Ticket submitters do not authenticate (auth out of scope for v1 — see project-scope.md)
 
 ## AI

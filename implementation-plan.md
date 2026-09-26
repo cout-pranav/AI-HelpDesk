@@ -18,10 +18,8 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - Define entities: `User` (admin/agent, role), `Ticket`, `Category` (enum), `Status` (enum), `Message`/`Reply`
 - EF Core migrations for initial schema
 - Seed a default admin account on first run/deploy
-- Database session auth: `Session` entity/table, login endpoint creates a session row and sets an HTTP-only session cookie
-- Auth middleware: validate session cookie against DB on each request, attach role (`admin`/`agent`) to the request context
-- Auth policies (`[Authorize(Roles = "Admin")]` etc.) backed by the session-derived role
-- Logout endpoint: deletes the session row and clears the cookie
+- JWT auth: login endpoint, token issuance, role claims (`admin`, `agent`)
+- Auth middleware/policies (`[Authorize(Roles = "Admin")]` etc.)
 - Admin endpoints: create/list/deactivate agent accounts
 - Frontend: login page, auth context/hook, protected routes via React Router
 
