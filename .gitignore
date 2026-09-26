@@ -1,0 +1,16 @@
+# Backend (.NET)
+backend/**/bin/
+backend/**/obj/
+*.dll
+*.pdb
+*.user
+
+# Frontend (Node/Vite)
+frontend/node_modules/
+frontend/dist/
+
+# Editor/OS
+.vs/
+.vscode/
+*.swp
+.DS_Store
