@@ -9,10 +9,10 @@
 - React Router for client-side routing
 
 ## Auth
-- Auth0 as the identity provider for admin/agent accounts only — hosted Universal Login, so no passwords or token issuance in our code
-- Roles (`admin`, `agent`) managed via Auth0 RBAC and added to the access token by a post-login Action
-- Frontend: `@auth0/auth0-react` SDK (login redirect, access token for API calls)
-- Backend: validates Auth0-issued JWT access tokens via `Microsoft.AspNetCore.Authentication.JwtBearer`; agent account management via the Auth0 Management API
+- Self-issued JWT auth for admin/agent accounts only — the API owns the user table, hashes passwords, and issues signed access tokens on login
+- Role claims (`admin`, `agent`) in the token drive `[Authorize(Roles = ...)]` policies
+- Backend: `Microsoft.AspNetCore.Authentication.JwtBearer` for token validation; `System.IdentityModel.Tokens.Jwt` / `JsonWebTokenHandler` for issuance; `PasswordHasher<T>` for password hashing
+- Frontend: custom login form + auth context; token sent as `Authorization: Bearer` header
 - Ticket submitters do not authenticate (auth out of scope for v1 — see project-scope.md)
 
 ## AI

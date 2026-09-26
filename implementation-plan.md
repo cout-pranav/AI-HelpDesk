@@ -15,15 +15,15 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - Basic CI-friendly project structure (solution folders, .gitignore, README)
 
 ## Phase 1 — Core Data Model & Auth
-- Define entities: `User` (local profile keyed by Auth0 `sub`, display name, email, active flag), `Ticket`, `Category` (enum), `Status` (enum), `Message`/`Reply`
+- Define entities: `User` (email, display name, password hash, role `admin`/`agent`, active flag), `Ticket`, `Category` (enum), `Status` (enum), `Message`/`Reply`
 - EF Core migrations for initial schema
-- Auth0 tenant setup: SPA application (frontend), API resource with an audience identifier (backend), RBAC enabled with `admin` and `agent` roles
-- Auth0 post-login Action that adds the user's roles to the access token as a namespaced custom claim
-- Bootstrap the first admin by assigning the `admin` role to a user in the Auth0 dashboard (replaces seeding a local admin account)
-- Backend: validate Auth0 access tokens via `Microsoft.AspNetCore.Authentication.JwtBearer` (Authority = Auth0 domain, Audience = API identifier); map the roles claim so `[Authorize(Roles = "admin")]` / policies work
-- Backend: on first authenticated request, create/update the local `User` row from token claims (just-in-time provisioning)
-- Admin endpoints: create/list/deactivate agent accounts via the Auth0 Management API (machine-to-machine app; deactivate = block user in Auth0 + mark inactive locally)
-- Frontend: `@auth0/auth0-react` (Universal Login redirect, no custom login form), attach access token to API calls, protected routes via React Router
+- Seed a default admin account on first run/deploy (credentials from config, not hardcoded)
+- Password hashing via ASP.NET Core `PasswordHasher<User>` (no plaintext storage)
+- JWT auth: `POST /api/auth/login` verifies credentials and issues a signed access token (HMAC-SHA256, signing key from config) with `sub`, `email`, and `role` claims (`admin`, `agent`); short-ish expiry (e.g. 60 min)
+- Backend: validate tokens via `Microsoft.AspNetCore.Authentication.JwtBearer` (issuer, audience, lifetime, signing key); role claim mapped so `[Authorize(Roles = "admin")]` / policies work
+- Deactivated users can't log in (active flag checked at login); tokens they already hold stay valid until they expire
+- Admin endpoints: create/list/deactivate agent accounts
+- Frontend: login page, auth context/hook storing the token (in memory + `localStorage`), attach `Authorization: Bearer` header to API calls, logout clears the token, redirect to login on 401, protected routes via React Router
 
 ## Phase 2 — Ticket Core (No AI Yet)
 - API: create ticket (public/no-auth form submission — name, email, subject, body)
@@ -52,15 +52,15 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - Handle send failures (retry/log, don't lose the reply content)
 
 ## Phase 5 — Admin & Dashboard Polish
-- Admin user management UI (list/create/deactivate agents, backed by the Auth0 Management API endpoints)
+- Admin user management UI (list/create/deactivate agents)
 - Dashboard: ticket volume by category/status, basic charts
 - Role-based UI gating (agent vs admin views)
 
 ## Phase 6 — Hardening & Deployment
 - Input validation everywhere (ticket form, auth, admin endpoints)
 - Dockerize full stack (API, frontend build, SQL Server) via docker-compose
-- Environment/config management (API keys for AI + email, Auth0 domain/audience/client IDs and Management API client secret, connection strings)
-- Auth0 production config: allowed callback/logout/web origin URLs for the deployed frontend
+- Environment/config management (API keys for AI + email, JWT signing key/issuer/audience, seeded admin credentials, connection strings)
+- Auth hardening: strong signing key from secrets (not appsettings), login rate limiting / lockout on repeated failures
 - Manual end-to-end test pass: submit ticket → AI classify/summarize/draft → agent edits → send email → status update
 - README with setup/run instructions
 
