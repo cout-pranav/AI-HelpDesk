@@ -9,8 +9,10 @@ export function RequireAuth() {
   if (isLoading) {
     return <p className="session-loading">Checking session…</p>
   }
+  //User ne back button press kela tar login page var redirect honar.
   if (!user) {
     return <Navigate to="/login" replace />
   }
+  //child routes render hota. Outlet is used to render the child routes of the current route.
   return <Outlet />
 }

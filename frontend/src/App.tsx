@@ -11,9 +11,10 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
-          <Route index element={<HomePage />} />
+          <Route path="/" element={<HomePage />} />
         </Route>
       </Route>
+      {/* Dusra kuthala pan route(*) user ne add kela tar redirect kara home page la */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
