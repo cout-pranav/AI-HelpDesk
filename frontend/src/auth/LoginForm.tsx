@@ -1,12 +1,27 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { ApiError } from '../lib/api'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { ApiError } from '@/lib/api'
 import { useAuth } from './authContext'
 
+// Login only checks presence and shape; password strength rules belong on the forms that set a password.
 const loginSchema = z.object({
-  email: z.email('Enter a valid email address.'),
-  password: z.string().min(1, 'Password is required.'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Email is required.')
+    .max(256, 'Email must be at most 256 characters.') // Users.Email column length
+    .pipe(z.email('Enter a valid email address.')),
+  password: z
+    .string()
+    .min(1, 'Password is required.')
+    .max(128, 'Password must be at most 128 characters.'),
 })
 
 type LoginValues = z.infer<typeof loginSchema>
@@ -19,6 +34,8 @@ export function LoginForm() {
     formState: { errors },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
+    // Validate a field once it loses focus, then re-validate on every change.
+    mode: 'onTouched',
     defaultValues: { email: '', password: '' },
   })
 
@@ -31,38 +48,50 @@ export function LoginForm() {
     : null
 
   return (
-    <form className="mx-auto mt-8 flex max-w-xs flex-col gap-3 text-left" onSubmit={onSubmit} noValidate>
-      <h2 className="text-xl font-semibold">Sign in</h2>
-      <label className="flex flex-col gap-1">
-        Email
-        <input
-          className="rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 aria-invalid:border-red-600 aria-invalid:ring-red-600/30 dark:border-gray-700 dark:bg-gray-900"
-          type="email"
-          autoComplete="username"
-          aria-invalid={errors.email ? true : undefined}
-          {...register('email')}
-        />
-        {errors.email && <span className="text-sm text-red-600">{errors.email.message}</span>}
-      </label>
-      <label className="flex flex-col gap-1">
-        Password
-        <input
-          className="rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 aria-invalid:border-red-600 aria-invalid:ring-red-600/30 dark:border-gray-700 dark:bg-gray-900"
-          type="password"
-          autoComplete="current-password"
-          aria-invalid={errors.password ? true : undefined}
-          {...register('password')}
-        />
-        {errors.password && <span className="text-sm text-red-600">{errors.password.message}</span>}
-      </label>
-      {error && <p className="text-red-600" role="alert">{error}</p>}
-      <button
-        type="submit"
-        disabled={login.isPending}
-        className="cursor-pointer rounded-md bg-blue-600 px-3 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {login.isPending ? 'Signing in…' : 'Sign in'}
-      </button>
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xl">Sign in</CardTitle>
+        <CardDescription>Enter your email and password to access your tickets.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} noValidate>
+          <FieldGroup>
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Field data-invalid={errors.email ? true : undefined}>
+              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                autoComplete="username"
+                aria-invalid={errors.email ? true : undefined}
+                {...register('email')}
+              />
+              <FieldError errors={[errors.email]} />
+            </Field>
+            <Field data-invalid={errors.password ? true : undefined}>
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                aria-invalid={errors.password ? true : undefined}
+                {...register('password')}
+              />
+              <FieldError errors={[errors.password]} />
+            </Field>
+            <Button type="submit" className="w-full" disabled={login.isPending}>
+              {login.isPending && <Loader2 className="animate-spin" />}
+              {login.isPending ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </FieldGroup>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
