@@ -14,7 +14,15 @@ Read these before making product/architecture decisions:
 ### Backend (`backend/TicketManagement.Api`)
 ```
 dotnet build                       # build
-dotnet run --launch-profile http   # run at http://localhost:5280
+dotnet run --launch-profile http   # run at http://localhost:5280 (applies migrations + seeds admin on startup)
+dotnet ef migrations add <Name>    # new migration (dotnet-ef installed globally); applied automatically on next run
+
+# Admin seed credentials (one-time setup), stored in the user-secrets secrets.json, read on startup.
+# Env var equivalents outside Development: SeedAdmin__Email / SeedAdmin__Password / SeedAdmin__DisplayName.
+dotnet user-secrets list                                    # show current values
+dotnet user-secrets set "SeedAdmin:Email" "admin@example.com"
+dotnet user-secrets set "SeedAdmin:Password" "<password>"
+dotnet user-secrets set "SeedAdmin:DisplayName" "Administrator"   # optional
 ```
 
 ### Frontend (`frontend`)
@@ -31,13 +39,29 @@ No test suite exists yet in either project.
 ## Architecture
 
 Two-project full-stack layout, no shared package boundary:
-- `backend/TicketManagement.Api` — ASP.NET Core Web API. `Program.cs` is minimal-API style (no `Startup.cs`); DbContext registration, CORS policy, and any minimal endpoints (e.g. `/api/health`) are wired directly there. `Data/TicketManagementDbContext.cs` is the EF Core context (SQL Server provider), currently empty pending Phase 1 entities.
+- `backend/TicketManagement.Api` — ASP.NET Core Web API. `Program.cs` is minimal-API style (no `Startup.cs`); DbContext registration, CORS policy, and any minimal endpoints (e.g. `/api/health`) are wired directly there. `Data/TicketManagementDbContext.cs` is the EF Core context (SQL Server provider). Minimal-API endpoint groups live in `Endpoints/` as `Map*Endpoints` extension methods called from `Program.cs`.
 - `frontend` — React + Vite + TypeScript. Vite config uses Rolldown (`vite` v8 / `rolldown-vite` toolchain), not the standard Rollup-based Vite. API base URL is read from `VITE_API_BASE_URL` (see `.env`), not hardcoded — always use this when calling the backend from new frontend code.
+
+### Auth
+- Self-issued JWT (HMAC-SHA256). `Auth/TokenService.cs` issues tokens with `sub`, `email`, `name`, `role` claims. `Program.cs` validates them with `MapInboundClaims = false` and `RoleClaimType = "role"`, so use `RequireAuthorization(p => p.RequireRole(Roles.Admin))` for role-gated endpoints.
+- Endpoints: `POST /api/auth/login`, `GET /api/auth/me` (`Endpoints/AuthEndpoints.cs`).
+- `Models/User.cs`: `Role` is a string holding a `Roles` constant (`Models/Roles.cs`), `"Admin"` or `"Agent"`, stored as-is in the DB, the JWT and API responses. Emails are stored normalized via `User.NormalizeEmail`. The user row holds no credentials.
+- `Models/Account.cs`: a user's sign-in methods live in the `Accounts` table (`Id`, `UserId` → `Users`, `Provider`, `PasswordHash`), unique per `(UserId, Provider)`. `Provider` is an `AuthProviders` constant: `"credential"` holds a password hashed with `PasswordHasher<User>`, while external providers like `"google"` (planned) leave `PasswordHash` null. Login looks up the user's `credential` account.
+- Config: `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpiryMinutes` are in `appsettings.json`. The dev-only `Jwt:SigningKey` is in `appsettings.Development.json`.
+- Admin seeding is `Data/DbSeeder.cs`, called from `Program.cs` on every startup (there is no separate seed command): it applies pending migrations, then creates the admin from `SeedAdmin:*` if that email doesn't exist yet, and logs a warning and skips if unset. It never updates an existing user, so changing `SeedAdmin:Password` does not change an existing admin's password.
+- Frontend: `src/lib/api.ts` `apiFetch` attaches the Bearer token and signs the user out on a 401. `src/auth/AuthProvider.tsx` + `useAuth()` (`src/auth/authContext.ts`) hold the session, with the token in `localStorage` under `auth.token`. `src/auth/LoginForm.tsx` is rendered by `App.tsx` when signed out. Use `apiFetch` for new API calls.
+
+### Configuration and secrets
+- Committed config: `appsettings.json` (JWT issuer/audience/expiry) and `appsettings.Development.json` (LocalDB connection string `TicketManagementDb`, dev JWT signing key).
+- Secrets that must not be committed (admin seed credentials) go in dotnet user-secrets (`secrets.json`, via `<UserSecretsId>` in the csproj), never in appsettings or a `.env` file.
+- `frontend/.env` is committed on purpose because it only holds the non-secret `VITE_API_BASE_URL`. Frontend secrets would go in a git-ignored `.env.local`.
+- `.gitignore` also excludes `.claude/settings.local.json`.
 
 ### Cross-cutting conventions
 - CORS in `Program.cs` is locked to a single named policy allowing only the Vite dev origin (`http://localhost:5173`). If the frontend dev port changes, update `WithOrigins` to match, or the two won't be able to talk to each other.
 - `react-router-dom` is installed but intentionally not wired up yet — routing is deferred to Phase 1 (auth + protected routes) per implementation-plan.md.
-- Docker is deferred to a later phase; local dev currently runs both projects directly (no docker-compose yet), against a locally-installed SQL Server (not LocalDB-in-container).
+- Docker is deferred to a later phase; local dev currently runs both projects directly (no docker-compose yet), against SQL Server LocalDB (`(localdb)\mssqllocaldb`) on the host, not a container.
+- A running backend locks `bin/Debug/.../TicketManagement.Api.exe`, so stop it before `dotnet build` / `dotnet run` or the build fails with MSB3027.
 - AI provider access (Claude/Gemini) is meant to sit behind an `IAiService`-style abstraction on the backend once Phase 3 starts — don't call a provider SDK directly from multiple call sites.
 
 ## Using Context7

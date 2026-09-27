@@ -4,13 +4,30 @@ backend/**/obj/
 *.dll
 *.pdb
 *.user
+*.suo
+TestResults/
 
 # Frontend (Node/Vite)
 frontend/node_modules/
 frontend/dist/
 
+# Environment files
+# frontend/.env is committed (non-secret VITE_API_BASE_URL). Real secrets go in
+# dotnet user-secrets (backend) or a git-ignored .env.local (frontend).
+.env.local
+.env.*.local
+backend/**/.env
+
+# Logs
+*.log
+
+# Claude Code per-user settings
+.claude/settings.local.json
+
 # Editor/OS
 .vs/
 .vscode/
+.idea/
 *.swp
 .DS_Store
+Thumbs.db
