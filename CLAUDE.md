@@ -59,7 +59,7 @@ Two-project full-stack layout, no shared package boundary:
 
 ### Cross-cutting conventions
 - CORS in `Program.cs` is locked to a single named policy allowing only the Vite dev origin (`http://localhost:5173`). If the frontend dev port changes, update `WithOrigins` to match, or the two won't be able to talk to each other.
-- `react-router-dom` is installed but intentionally not wired up yet — routing is deferred to Phase 1 (auth + protected routes) per implementation-plan.md.
+- Routing uses React Router v7 in declarative mode (imported from `react-router-dom`): `<BrowserRouter>` wraps `AuthProvider` in `main.tsx`, and the route tree lives in `App.tsx`. Protected routes nest under the `auth/RequireAuth.tsx` layout route (redirects to `/login` when there's no user, so `logout()` needs no explicit navigate), then `components/AppLayout.tsx` (nav bar + `<Outlet />`). Pages go in `src/pages/`.
 - Docker is deferred to a later phase; local dev currently runs both projects directly (no docker-compose yet), against SQL Server LocalDB (`(localdb)\mssqllocaldb`) on the host, not a container.
 - A running backend locks `bin/Debug/.../TicketManagement.Api.exe`, so stop it before `dotnet build` / `dotnet run` or the build fails with MSB3027.
 - AI provider access (Claude/Gemini) is meant to sit behind an `IAiService`-style abstraction on the backend once Phase 3 starts — don't call a provider SDK directly from multiple call sites.

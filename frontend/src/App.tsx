@@ -1,39 +1,21 @@
-import { useEffect, useState } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
-import { useAuth } from './auth/authContext'
-import { LoginForm } from './auth/LoginForm'
-
-type HealthStatus = 'checking' | 'ok' | 'error'
+import { RequireAuth } from './auth/RequireAuth'
+import { AppLayout } from './components/AppLayout'
+import { HomePage } from './pages/HomePage'
+import { LoginPage } from './pages/LoginPage'
 
 function App() {
-  const [status, setStatus] = useState<HealthStatus>('checking')
-  const { user, isLoading, logout } = useAuth()
-
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/health`)
-      .then((res) => (res.ok ? setStatus('ok') : setStatus('error')))
-      .catch(() => setStatus('error'))
-  }, [])
-
   return (
-    <main>
-      <h1>Ticket Management System</h1>
-      <p>
-        Backend status: <strong className={`status status-${status}`}>{status}</strong>
-      </p>
-      {isLoading ? (
-        <p>Checking session…</p>
-      ) : user ? (
-        <p>
-          Signed in as <strong>{user.displayName}</strong> ({user.role}){' '}
-          <button type="button" onClick={logout}>
-            Log out
-          </button>
-        </p>
-      ) : (
-        <LoginForm />
-      )}
-    </main>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<RequireAuth />}>
+        <Route element={<AppLayout />}>
+          <Route index element={<HomePage />} />
+        </Route>
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 
