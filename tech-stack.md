@@ -7,6 +7,7 @@
 ## Frontend
 - React (Vite + TypeScript)
 - React Router for client-side routing
+- TanStack Query (`@tanstack/react-query`) for server state (fetching, caching, mutations, invalidation) on top of a thin `fetch` wrapper
 
 ## Auth
 - Self-issued JWT auth for admin/agent accounts only — the API owns the user table, hashes passwords, and issues signed access tokens on login

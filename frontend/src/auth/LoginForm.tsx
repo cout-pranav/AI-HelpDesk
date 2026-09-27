@@ -6,21 +6,17 @@ export function LoginForm() {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setError(null)
-    setIsSubmitting(true)
-    try {
-      await login(email, password)
-    } catch (err) {
-      setError(err instanceof ApiError && err.status === 401 ? 'Invalid email or password.' : 'Could not sign in. Please try again.')
-    } finally {
-      setIsSubmitting(false)
-    }
+    login.mutate({ email, password })
   }
+
+  const error = login.error
+    ? login.error instanceof ApiError && login.error.status === 401
+      ? 'Invalid email or password.'
+      : 'Could not sign in. Please try again.'
+    : null
 
   return (
     <form className="login-form" onSubmit={handleSubmit}>
@@ -46,8 +42,8 @@ export function LoginForm() {
         />
       </label>
       {error && <p className="login-error" role="alert">{error}</p>}
-      <button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Signing in…' : 'Sign in'}
+      <button type="submit" disabled={login.isPending}>
+        {login.isPending ? 'Signing in…' : 'Sign in'}
       </button>
     </form>
   )

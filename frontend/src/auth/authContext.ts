@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react'
+import type { UseMutationResult } from '@tanstack/react-query'
 
 export type Role = 'Admin' | 'Agent'
 
@@ -15,11 +16,16 @@ export type LoginResponse = {
   user: AuthUser
 }
 
+export type LoginCredentials = {
+  email: string
+  password: string
+}
+
 export type AuthContextValue = {
   user: AuthUser | null
   token: string | null
   isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: UseMutationResult<LoginResponse, Error, LoginCredentials>
   logout: () => void
 }
 

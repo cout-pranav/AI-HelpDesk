@@ -1,17 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/authContext'
-
-type HealthStatus = 'checking' | 'ok' | 'error'
+import { apiFetch } from '../lib/api'
 
 export function HomePage() {
   const { user } = useAuth()
-  const [status, setStatus] = useState<HealthStatus>('checking')
+  const health = useQuery({
+    queryKey: ['health'],
+    queryFn: () => apiFetch<{ status: string }>('/api/health'),
+  })
 
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/health`)
-      .then((res) => (res.ok ? setStatus('ok') : setStatus('error')))
-      .catch(() => setStatus('error'))
-  }, [])
+  const status = health.isPending ? 'checking' : health.isError ? 'error' : 'ok'
 
   return (
     <>

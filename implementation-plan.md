@@ -35,6 +35,7 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - Frontend: ticket list view (filter/sort controls)
 - Frontend: ticket detail view (thread + status/category controls + manual reply box)
 - Frontend: dashboard shell (counts by status/category)
+- Frontend data access: list/detail/dashboard data via TanStack Query `useQuery` (filters/sort in the query key); submit, status/category change and reply via `useMutation`, invalidating the affected ticket list/detail/dashboard queries on success
 
 ## Phase 3 — AI Integration
 - `IAiService` abstraction (provider-agnostic: Claude or Gemini)

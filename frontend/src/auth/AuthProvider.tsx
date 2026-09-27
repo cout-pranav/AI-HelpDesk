@@ -1,54 +1,58 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, configureApiAuth } from '../lib/api'
-import { AuthContext, type AuthContextValue, type AuthUser, type LoginResponse } from './authContext'
+import {
+  AuthContext,
+  type AuthContextValue,
+  type AuthUser,
+  type LoginCredentials,
+  type LoginResponse,
+} from './authContext'
 
 const TOKEN_STORAGE_KEY = 'auth.token'
+const ME_QUERY_KEY = ['auth', 'me'] as const
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_STORAGE_KEY))
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [isLoading, setIsLoading] = useState(token !== null)
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_STORAGE_KEY)
     setToken(null)
-    setUser(null)
-  }, [])
+    // Drop every cached response so nothing from this session leaks into the next.
+    queryClient.clear()
+  }, [queryClient])
 
   useEffect(() => {
     configureApiAuth({ getToken: () => token, onUnauthorized: logout })
   }, [token, logout])
 
-  // Validate a token restored from localStorage.
-  useEffect(() => {
-    const stored = localStorage.getItem(TOKEN_STORAGE_KEY)
-    if (!stored) return
+  // Pass the header explicitly so the first request doesn't depend on the
+  // configureApiAuth effect above having run yet.
+  const meQuery = useQuery({
+    queryKey: ME_QUERY_KEY,
+    queryFn: () => apiFetch<AuthUser>('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } }),
+    enabled: token !== null,
+  })
 
-    let cancelled = false
-    apiFetch<AuthUser>('/api/auth/me', { headers: { Authorization: `Bearer ${stored}` } })
-      .then((me) => {
-        if (!cancelled) setUser(me)
-      })
-      .catch(() => {
-        if (!cancelled) logout()
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [logout])
+  const login = useMutation({
+    mutationFn: ({ email, password }: LoginCredentials) =>
+      apiFetch<LoginResponse>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }),
+    onSuccess: (res) => {
+      localStorage.setItem(TOKEN_STORAGE_KEY, res.token)
+      // Seed the cache so enabling the `me` query doesn't trigger a redundant fetch.
+      queryClient.setQueryData(ME_QUERY_KEY, res.user)
+      setToken(res.token)
+    },
+  })
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await apiFetch<LoginResponse>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    })
-    localStorage.setItem(TOKEN_STORAGE_KEY, res.token)
-    setToken(res.token)
-    setUser(res.user)
-  }, [])
+  // A 401 on `me` signs out via apiFetch's onUnauthorized. Any other failure (e.g.
+  // API unreachable) leaves `user` null, so RequireAuth sends the user to /login.
+  const user = token ? (meQuery.data ?? null) : null
+  const isLoading = token !== null && meQuery.isPending
 
   const value = useMemo<AuthContextValue>(
     () => ({ user, token, isLoading, login, logout }),
