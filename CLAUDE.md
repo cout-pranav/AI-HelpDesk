@@ -54,7 +54,7 @@ Two-project full-stack layout, no shared package boundary:
 ### Configuration and secrets
 - Committed config: `appsettings.json` (JWT issuer/audience/expiry) and `appsettings.Development.json` (LocalDB connection string `TicketManagementDb`, dev JWT signing key).
 - Secrets that must not be committed (admin seed credentials) go in dotnet user-secrets (`secrets.json`, via `<UserSecretsId>` in the csproj), never in appsettings or a `.env` file.
-- `frontend/.env` is committed on purpose because it only holds the non-secret `VITE_API_BASE_URL`. Frontend secrets would go in a git-ignored `.env.local`.
+- `frontend/.env` is committed on purpose because it only holds the non-secret `VITE_API_BASE_URL`. Frontend secrets would go in a git-ignored `.env.local`. `frontend/.env.example` documents every variable; add new `VITE_*` variables there too.
 - `.gitignore` also excludes `.claude/settings.local.json`.
 
 ### Cross-cutting conventions
