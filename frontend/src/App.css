@@ -75,6 +75,11 @@ main {
   font: inherit;
 }
 
+.login-form input[aria-invalid='true'] {
+  border: 1px solid #cf222e;
+  outline-color: #cf222e;
+}
+
 .login-form button {
   padding: 0.5rem;
   font: inherit;
@@ -83,5 +88,10 @@ main {
 
 .login-error {
   margin: 0;
+  color: #cf222e;
+}
+
+.field-error {
+  font-size: 0.875rem;
   color: #cf222e;
 }
