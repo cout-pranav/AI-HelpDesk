@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/authContext'
-import { apiFetch } from '../lib/api'
+import { api } from '../lib/api'
 
 export function HomePage() {
   const { user } = useAuth()
   const health = useQuery({
     queryKey: ['health'],
-    queryFn: () => apiFetch<{ status: string }>('/api/health'),
+    queryFn: () => api.get<{ status: string }>('/api/health').then((r) => r.data),
   })
 
   const status = health.isPending ? 'checking' : health.isError ? 'error' : 'ok'

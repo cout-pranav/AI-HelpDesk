@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+import axios from 'axios'
 
 let getToken: () => string | null = () => null
 let onUnauthorized: () => void = () => {}
@@ -22,34 +22,27 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers)
-  if (init.body !== undefined && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json')
-  }
+export const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL })
+
+api.interceptors.request.use((config) => {
   const token = getToken()
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`)
+  if (token && !config.headers.has('Authorization')) {
+    config.headers.set('Authorization', `Bearer ${token}`)
   }
+  return config
+})
 
-  const res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers })
-
-  if (!res.ok) {
-    if (res.status === 401 && token) {
-      onUnauthorized()
-    }
-    let message = res.statusText
-    try {
-      const problem = (await res.json()) as { detail?: string; title?: string }
-      message = problem.detail ?? problem.title ?? message
-    } catch {
-      // Non-JSON error body; keep statusText.
-    }
-    throw new ApiError(res.status, message)
+// Turn HTTP error responses into ApiError (message from the ProblemDetails body).
+// Network errors have no response and are rethrown as-is.
+api.interceptors.response.use(undefined, (error: unknown) => {
+  if (!axios.isAxiosError(error) || !error.response) {
+    return Promise.reject(error)
   }
-
-  if (res.status === 204) {
-    return undefined as T
+  const { status, data, statusText } = error.response
+  if (status === 401 && getToken()) {
+    onUnauthorized()
   }
-  return (await res.json()) as T
-}
+  const problem = data as { detail?: string; title?: string } | undefined
+  const message = problem?.detail ?? problem?.title ?? (statusText || error.message)
+  return Promise.reject(new ApiError(status, message))
+})

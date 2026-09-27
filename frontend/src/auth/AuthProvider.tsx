@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch, configureApiAuth } from '../lib/api'
+import { api, configureApiAuth } from '../lib/api'
 import {
   AuthContext,
   type AuthContextValue,
@@ -31,16 +31,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // configureApiAuth effect above having run yet.
   const meQuery = useQuery({
     queryKey: ME_QUERY_KEY,
-    queryFn: () => apiFetch<AuthUser>('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } }),
+    queryFn: () =>
+      api
+        .get<AuthUser>('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => r.data),
     enabled: token !== null,
   })
 
   const login = useMutation({
     mutationFn: ({ email, password }: LoginCredentials) =>
-      apiFetch<LoginResponse>('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      }),
+      api.post<LoginResponse>('/api/auth/login', { email, password }).then((r) => r.data),
     onSuccess: (res) => {
       localStorage.setItem(TOKEN_STORAGE_KEY, res.token)
       // Seed the cache so enabling the `me` query doesn't trigger a redundant fetch.
@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   })
 
-  // A 401 on `me` signs out via apiFetch's onUnauthorized. Any other failure (e.g.
+  // A 401 on `me` signs out via the api client's onUnauthorized. Any other failure (e.g.
   // API unreachable) leaves `user` null, so RequireAuth sends the user to /login.
   const user = token ? (meQuery.data ?? null) : null
   const isLoading = token !== null && meQuery.isPending
