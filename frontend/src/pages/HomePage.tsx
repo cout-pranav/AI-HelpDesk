@@ -10,12 +10,17 @@ export function HomePage() {
   })
 
   const status = health.isPending ? 'checking' : health.isError ? 'error' : 'ok'
+  const statusColor = {
+    checking: 'text-yellow-600',
+    error: 'text-red-600',
+    ok: 'text-green-700 dark:text-green-500',
+  }[status]
 
   return (
     <>
-      <h1>Welcome, {user?.displayName}</h1>
+      <h1 className="mb-4 text-2xl font-semibold">Welcome, {user?.displayName}</h1>
       <p>
-        Backend status: <strong className={`status status-${status}`}>{status}</strong>
+        Backend status: <strong className={`capitalize ${statusColor}`}>{status}</strong>
       </p>
     </>
   )

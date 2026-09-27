@@ -31,30 +31,36 @@ export function LoginForm() {
     : null
 
   return (
-    <form className="login-form" onSubmit={onSubmit} noValidate>
-      <h2>Sign in</h2>
-      <label>
+    <form className="mx-auto mt-8 flex max-w-xs flex-col gap-3 text-left" onSubmit={onSubmit} noValidate>
+      <h2 className="text-xl font-semibold">Sign in</h2>
+      <label className="flex flex-col gap-1">
         Email
         <input
+          className="rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 aria-invalid:border-red-600 aria-invalid:ring-red-600/30 dark:border-gray-700 dark:bg-gray-900"
           type="email"
           autoComplete="username"
           aria-invalid={errors.email ? true : undefined}
           {...register('email')}
         />
-        {errors.email && <span className="field-error">{errors.email.message}</span>}
+        {errors.email && <span className="text-sm text-red-600">{errors.email.message}</span>}
       </label>
-      <label>
+      <label className="flex flex-col gap-1">
         Password
         <input
+          className="rounded-md border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 aria-invalid:border-red-600 aria-invalid:ring-red-600/30 dark:border-gray-700 dark:bg-gray-900"
           type="password"
           autoComplete="current-password"
           aria-invalid={errors.password ? true : undefined}
           {...register('password')}
         />
-        {errors.password && <span className="field-error">{errors.password.message}</span>}
+        {errors.password && <span className="text-sm text-red-600">{errors.password.message}</span>}
       </label>
-      {error && <p className="login-error" role="alert">{error}</p>}
-      <button type="submit" disabled={login.isPending}>
+      {error && <p className="text-red-600" role="alert">{error}</p>}
+      <button
+        type="submit"
+        disabled={login.isPending}
+        className="cursor-pointer rounded-md bg-blue-600 px-3 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+      >
         {login.isPending ? 'Signing in…' : 'Sign in'}
       </button>
     </form>

@@ -7,7 +7,7 @@ export function RequireAuth() {
   const { user, isLoading } = useAuth()
 
   if (isLoading) {
-    return <p className="session-loading">Checking session…</p>
+    return <p className="p-6 text-center text-gray-500">Checking session…</p>
   }
   //User ne back button press kela tar login page var redirect honar.
   if (!user) {
