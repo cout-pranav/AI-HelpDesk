@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { RequireAuth } from './auth/RequireAuth'
+import { RequireRole } from './auth/RequireRole'
 import { AppLayout } from './components/AppLayout'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
+import { UsersPage } from './pages/UsersPage'
 
 function App() {
   return (
@@ -11,6 +13,9 @@ function App() {
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<HomePage />} />
+          <Route element={<RequireRole role="Admin" />}>
+            <Route path="/users" element={<UsersPage />} />
+          </Route>
         </Route>
       </Route>
       {/* Dusra kuthala pan route(*) user ne add kela tar redirect kara home page la */}

@@ -1,5 +1,6 @@
-import { Link, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/authContext'
+import { cn } from '@/lib/utils'
 
 export function AppLayout() {
   const { user, logout } = useAuth()
@@ -7,9 +8,21 @@ export function AppLayout() {
   return (
     <>
       <header className="flex items-center justify-between gap-4 border-b border-gray-200 px-6 py-3 dark:border-gray-800">
-        <Link to="/" className="text-lg font-semibold">
-          Ticket Management
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link to="/" className="text-lg font-semibold">
+            Ticket Management
+          </Link>
+          
+          {user?.role === 'Admin' && (
+            <nav className="flex items-center gap-4 text-sm">
+              <NavLink
+                to="/users"
+              >
+                Users
+              </NavLink>
+            </nav>
+          )}
+        </div>
         {user && (
           <div className="flex items-center gap-3">
             <span>
