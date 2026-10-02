@@ -18,6 +18,8 @@ public record LoginResponse(string Token, DateTime ExpiresAt, UserDto User);
 
 public static class AuthEndpoints
 {
+    private const int MaxPasswordLength = 128;
+
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/auth");
@@ -26,15 +28,21 @@ public static class AuthEndpoints
             LoginRequest request,
             TicketManagementDbContext db,
             IPasswordHasher<User> hasher,
-            TokenService tokens) =>
+            TokenService tokens,
+            LoginAttemptLimiter attemptLimiter) =>
         {
             // Same response for unknown email, wrong password, and inactive user.
             var invalid = Results.Problem("Invalid email or password.", statusCode: StatusCodes.Status401Unauthorized);
 
-            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrEmpty(request.Password))
+            // Matches the client-side cap; also bounds the PBKDF2 work per request.
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrEmpty(request.Password)
+                || request.Password.Length > MaxPasswordLength)
                 return invalid;
 
             var email = User.NormalizeEmail(request.Email);
+            if (!attemptLimiter.TryAcquire(email))
+                return LoginRateLimiting.TooManyAttempts();
+
             var account = await db.Accounts
                 .Include(a => a.User)
                 .SingleOrDefaultAsync(a => a.Provider == AuthProviders.Credential && a.User.Email == email);
@@ -54,7 +62,7 @@ public static class AuthEndpoints
 
             var (token, expiresAt) = tokens.CreateToken(user);
             return Results.Ok(new LoginResponse(token, expiresAt, UserDto.From(user)));
-        });
+        }).RequireRateLimiting(LoginRateLimiting.PolicyName);
 
         group.MapGet("/me", async (HttpContext http, TicketManagementDbContext db) =>
         {
