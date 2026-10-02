@@ -5,8 +5,8 @@ namespace TicketManagement.Api.Auth;
 
 // Throttles password guessing on POST /api/auth/login at two levels:
 // - per client IP, via the rate limiter middleware (policy applied with RequireRateLimiting);
-// - per target email, via LoginAttemptLimiter inside the handler, since the middleware runs
-//   before the request body is bound and can't see the email.
+// - per target email (failed attempts only), via LoginAttemptLimiter inside the handler, since
+//   the middleware runs before the request body is bound and can't see the email.
 public static class LoginRateLimiting
 {
     public const string PolicyName = "login";
@@ -49,27 +49,49 @@ public static class LoginRateLimiting
         statusCode: StatusCodes.Status429TooManyRequests);
 }
 
-// Caps login attempts per normalized email, regardless of source IP, so a distributed
-// guessing attack against one account is still throttled.
+// Caps failed login attempts per normalized email. Only failures count, so a correct password
+// is never what uses up the budget. Two limits apply:
+// - per (email, IP): strict, stops a single source guessing one account's password;
+// - per email: loose, still throttles a distributed attack on one account while making it
+//   impractical to lock a user out from a single IP.
 public sealed class LoginAttemptLimiter : IDisposable
 {
-    private const int PermitsPerEmail = 10;
-    private static readonly TimeSpan EmailWindow = TimeSpan.FromMinutes(15);
+    private const int FailuresPerEmailAndIp = 5;
+    private const int FailuresPerEmail = 50;
+    private static readonly TimeSpan Window = TimeSpan.FromMinutes(15);
 
-    private readonly PartitionedRateLimiter<string> _limiter = PartitionedRateLimiter.Create<string, string>(email =>
-        RateLimitPartition.GetSlidingWindowLimiter(email, _ => new SlidingWindowRateLimiterOptions
-        {
-            PermitLimit = PermitsPerEmail,
-            Window = EmailWindow,
-            SegmentsPerWindow = 3,
-            QueueLimit = 0,
-        }));
+    private readonly PartitionedRateLimiter<string> _perEmailAndIp = CreateLimiter(FailuresPerEmailAndIp);
+    private readonly PartitionedRateLimiter<string> _perEmail = CreateLimiter(FailuresPerEmail);
 
-    public bool TryAcquire(string normalizedEmail)
+    private static PartitionedRateLimiter<string> CreateLimiter(int permitLimit) =>
+        PartitionedRateLimiter.Create<string, string>(key =>
+            RateLimitPartition.GetSlidingWindowLimiter(key, _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = Window,
+                SegmentsPerWindow = 3,
+                QueueLimit = 0,
+            }));
+
+    // A zero-permit acquire only reports whether permits remain; it consumes nothing.
+    public bool IsBlocked(string normalizedEmail, string ip)
     {
-        using var lease = _limiter.AttemptAcquire(normalizedEmail);
-        return lease.IsAcquired;
+        using var perEmailAndIp = _perEmailAndIp.AttemptAcquire(PairKey(normalizedEmail, ip), 0);
+        using var perEmail = _perEmail.AttemptAcquire(normalizedEmail, 0);
+        return !perEmailAndIp.IsAcquired || !perEmail.IsAcquired;
     }
 
-    public void Dispose() => _limiter.Dispose();
+    public void RecordFailure(string normalizedEmail, string ip)
+    {
+        _perEmailAndIp.AttemptAcquire(PairKey(normalizedEmail, ip)).Dispose();
+        _perEmail.AttemptAcquire(normalizedEmail).Dispose();
+    }
+
+    private static string PairKey(string normalizedEmail, string ip) => $"{normalizedEmail}|{ip}";
+
+    public void Dispose()
+    {
+        _perEmailAndIp.Dispose();
+        _perEmail.Dispose();
+    }
 }
