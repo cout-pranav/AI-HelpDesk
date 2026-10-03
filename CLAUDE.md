@@ -32,7 +32,12 @@ npm run dev       # run at http://localhost:5173
 npm run build     # tsc -b && vite build
 npx tsc -b        # type-check only
 npm run lint      # oxlint
+npm test          # component tests (Vitest + React Testing Library, jsdom), run once
+npm run test:watch
 ```
+
+### Component tests (`frontend`, Vitest)
+Vitest config is the `test` block in `vite.config.ts` (jsdom, files `src/**/*.test.{ts,tsx}`, setup in `src/test/setup.ts` which loads the jest-dom matchers). Tests sit next to the component (e.g. `src/users/UsersList.test.tsx`). Render anything that uses TanStack Query with `renderWithQueryClient` from `@/test/renderWithQueryClient` (a fresh client per test, no retries), and stub HTTP by `vi.mock('@/lib/api')`, keeping the real `ApiError`.
 
 ### E2E tests (`frontend`, Playwright)
 `npm run test:e2e` runs the suite. How the E2E stack works and how to write tests lives in the `e2e-test-writer` sub-agent ([.claude/agents/e2e-test-writer.md](.claude/agents/e2e-test-writer.md)).
