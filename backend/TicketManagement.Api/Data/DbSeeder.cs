@@ -16,6 +16,12 @@ public static class DbSeeder
         var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(DbSeeder));
         var db = scope.ServiceProvider.GetRequiredService<TicketManagementDbContext>();
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+        var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+
+        // The Testing environment (Playwright E2E runs) uses its own database, recreated on every
+        // startup so each run begins from a clean, freshly migrated schema.
+        if (env.IsEnvironment("Testing"))
+            await db.Database.EnsureDeletedAsync();
 
         await db.Database.MigrateAsync();
 

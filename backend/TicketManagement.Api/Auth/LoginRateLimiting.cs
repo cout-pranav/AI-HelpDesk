@@ -7,6 +7,8 @@ namespace TicketManagement.Api.Auth;
 // - per client IP, via the rate limiter middleware (policy applied with RequireRateLimiting);
 // - per target email (failed attempts only), via LoginAttemptLimiter inside the handler, since
 //   the middleware runs before the request body is bound and can't see the email.
+// Both only limit when enabled (Production); elsewhere the policy is a no-op and the
+// per-email limiter never blocks, so local dev and E2E runs can log in freely.
 public static class LoginRateLimiting
 {
     public const string PolicyName = "login";
@@ -14,9 +16,9 @@ public static class LoginRateLimiting
     private const int PermitsPerIp = 10;
     private static readonly TimeSpan IpWindow = TimeSpan.FromMinutes(1);
 
-    public static IServiceCollection AddLoginRateLimiting(this IServiceCollection services)
+    public static IServiceCollection AddLoginRateLimiting(this IServiceCollection services, bool enabled)
     {
-        services.AddSingleton<LoginAttemptLimiter>();
+        services.AddSingleton(_ => new LoginAttemptLimiter(enabled));
 
         return services.AddRateLimiter(options =>
         {
@@ -24,8 +26,10 @@ public static class LoginRateLimiting
 
             // RemoteIpAddress is the direct peer; behind a reverse proxy, configure
             // UseForwardedHeaders first or every client will share one partition.
-            options.AddPolicy(PolicyName, context =>
-                RateLimitPartition.GetFixedWindowLimiter(
+            // The policy is always registered because the login endpoint requires it by name.
+            options.AddPolicy(PolicyName, context => !enabled
+                ? RateLimitPartition.GetNoLimiter("disabled")
+                : RateLimitPartition.GetFixedWindowLimiter(
                     context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions
                     {
@@ -54,7 +58,7 @@ public static class LoginRateLimiting
 // - per (email, IP): strict, stops a single source guessing one account's password;
 // - per email: loose, still throttles a distributed attack on one account while making it
 //   impractical to lock a user out from a single IP.
-public sealed class LoginAttemptLimiter : IDisposable
+public sealed class LoginAttemptLimiter(bool enabled) : IDisposable
 {
     private const int FailuresPerEmailAndIp = 5;
     private const int FailuresPerEmail = 50;
@@ -76,6 +80,9 @@ public sealed class LoginAttemptLimiter : IDisposable
     // A zero-permit acquire only reports whether permits remain; it consumes nothing.
     public bool IsBlocked(string normalizedEmail, string ip)
     {
+        if (!enabled)
+            return false;
+
         using var perEmailAndIp = _perEmailAndIp.AttemptAcquire(PairKey(normalizedEmail, ip), 0);
         using var perEmail = _perEmail.AttemptAcquire(normalizedEmail, 0);
         return !perEmailAndIp.IsAcquired || !perEmail.IsAcquired;
@@ -83,6 +90,9 @@ public sealed class LoginAttemptLimiter : IDisposable
 
     public void RecordFailure(string normalizedEmail, string ip)
     {
+        if (!enabled)
+            return;
+
         _perEmailAndIp.AttemptAcquire(PairKey(normalizedEmail, ip)).Dispose();
         _perEmail.AttemptAcquire(normalizedEmail).Dispose();
     }
