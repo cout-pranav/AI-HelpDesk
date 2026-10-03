@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -30,12 +31,7 @@ export function UsersList() {
   })
 
   if (users.isPending) {
-    return (
-      <p className="flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
-        Loading users…
-      </p>
-    )
+    return <UsersListSkeleton />
   }
 
   if (users.isError) {
@@ -56,15 +52,7 @@ export function UsersList() {
   return (
     <Table>
       <TableCaption className="sr-only">Users</TableCaption>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Email</TableHead>
-          <TableHead>Role</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Created</TableHead>
-        </TableRow>
-      </TableHeader>
+      <UsersTableHeader />
       <TableBody>
         {users.data.map((user) => (
           <TableRow key={user.id}>
@@ -80,6 +68,53 @@ export function UsersList() {
             </TableCell>
             <TableCell className="text-muted-foreground">
               {new Date(user.createdAt).toLocaleDateString()}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+function UsersTableHeader() {
+  return (
+    <TableHeader>
+      <TableRow>
+        <TableHead>Name</TableHead>
+        <TableHead>Email</TableHead>
+        <TableHead>Role</TableHead>
+        <TableHead>Status</TableHead>
+        <TableHead>Created</TableHead>
+      </TableRow>
+    </TableHeader>
+  )
+}
+
+const SKELETON_ROWS = 5
+
+// Mirrors the real table's columns so the layout doesn't shift when data arrives.
+function UsersListSkeleton() {
+  return (
+    <Table aria-busy="true">
+      <TableCaption className="sr-only">Loading users…</TableCaption>
+      <UsersTableHeader />
+      <TableBody>
+        {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+          <TableRow key={i} className="hover:bg-transparent">
+            <TableCell>
+              <Skeleton className="h-4 w-32" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-48" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-5 w-14 rounded-4xl" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-5 w-16 rounded-4xl" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
             </TableCell>
           </TableRow>
         ))}
