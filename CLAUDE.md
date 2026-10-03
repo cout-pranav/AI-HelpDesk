@@ -35,13 +35,13 @@ npm run lint      # oxlint
 ```
 
 ### E2E tests (`frontend`, Playwright)
-```
-npx playwright install chromium   # one-time browser download
-npm run test:e2e                  # starts the E2E backend + frontend, runs e2e/*.spec.ts
-npm run test:e2e:ui               # Playwright UI mode
-```
+`npm run test:e2e` runs the suite. How the E2E stack works and how to write tests lives in the `e2e-test-writer` sub-agent ([.claude/agents/e2e-test-writer.md](.claude/agents/e2e-test-writer.md)).
 
-No test cases exist yet; only the Playwright setup.
+Use the `e2e-test-writer` sub-agent (Agent tool, `subagent_type: "e2e-test-writer"`) whenever tests need to be added, extended, or fixed, rather than writing specs yourself:
+- After finishing a user-facing feature or flow, offer to have it cover the feature with E2E tests (or delegate directly if the user asked for tests).
+- In the prompt, name the feature, the pages/routes and backend endpoints involved, and the scenarios to cover (happy path plus key unhappy paths such as validation errors and role checks). It starts with no context from this conversation.
+- It only edits files under `frontend/e2e/`. When it reports an app bug or a missing accessibility hook (e.g. an input without a label), fix the app code yourself, then re-run it or the affected spec.
+- Relay its results to the user: files changed, scenarios covered, the actual pass/fail summary, and any app issues or gaps it reported.
 
 ## Architecture
 
@@ -72,7 +72,6 @@ Two-project full-stack layout, no shared package boundary:
 - Forms use React Hook Form (`react-hook-form` v7) with Zod (`zod` v4) schemas via `zodResolver` from `@hookform/resolvers/zod`: define a schema next to the form, type values with `z.infer<typeof schema>`, bind inputs with `register`, show `formState.errors` per field, and set `noValidate` on the `<form>` so Zod, not the browser, does the validation. The submit handler passes the parsed values to a `useMutation`. `src/auth/LoginForm.tsx` is the reference.
 - Styling is Tailwind CSS v4 via the `@tailwindcss/vite` plugin (no `tailwind.config.js`, no PostCSS config), with shadcn/ui (`components.json`: `base-nova` style, i.e. Base UI primitives, neutral base color, lucide icons). Add components with `npx shadcn@latest add <name>` (they land in `src/components/ui/`); `cn()` comes from `@/lib/utils`. Imports use the `@/` alias for `src/` (set in `tsconfig.json`, `tsconfig.app.json` and `vite.config.ts`). `src/index.css` holds the shadcn theme tokens (`--background`, `--primary`, ...) and base styles; prefer the semantic token utilities (`bg-background`, `text-muted-foreground`, `bg-primary`) over raw palette colors, style with utility classes in `className`, and don't add custom CSS files or class names. Dark mode follows the OS: the `dark` variant and the dark token set are both keyed to `prefers-color-scheme: dark` (not shadcn's default `.dark` class), and `<html>` has `scheme-light-dark` in `index.html`.
 - Routing uses React Router v7 in declarative mode (imported from `react-router-dom`): `<BrowserRouter>` wraps `AuthProvider` in `main.tsx`, and the route tree lives in `App.tsx`. Protected routes nest under the `auth/RequireAuth.tsx` layout route (redirects to `/login` when there's no user, so `logout()` needs no explicit navigate), then `components/AppLayout.tsx` (nav bar + `<Outlet />`). Role-gated pages nest further under `<RequireRole role="Admin" />` (`auth/RequireRole.tsx`), which redirects users without that role to `/` (e.g. the admin-only `/users` page). This only hides UI; the matching backend endpoints must still enforce the role. Pages go in `src/pages/`.
-- E2E (Playwright, `frontend/playwright.config.ts`, tests in `frontend/e2e/`) runs its own stack on separate ports so it never touches dev: the backend via the `e2e` launch profile (`http://localhost:5281`, `ASPNETCORE_ENVIRONMENT=Testing`, `appsettings.Testing.json`) and Vite in `--mode e2e` on `http://localhost:5174` (`.env.e2e` points it at 5281). The Testing environment uses the separate LocalDB database `TicketManagementDb_E2E`, which `DbSeeder` drops and re-migrates on every startup. The seeded admin comes from `e2e/testUsers.ts` (passed as `SeedAdmin__*` env vars); import it in tests to log in. The E2E backend builds into `bin/e2e/`, so it runs alongside a running dev backend. Tests run serially (`workers: 1`) since they share one database.
 - Docker is deferred to a later phase; local dev currently runs both projects directly (no docker-compose yet), against SQL Server LocalDB (`(localdb)\mssqllocaldb`) on the host, not a container.
 - A running backend locks `bin/Debug/.../TicketManagement.Api.exe`, so stop it before `dotnet build` / `dotnet run` or the build fails with MSB3027. (The E2E backend avoids this by building with `-p:OutDir=bin/e2e/`.)
 - AI provider access (Claude/Gemini) is meant to sit behind an `IAiService`-style abstraction on the backend once Phase 3 starts — don't call a provider SDK directly from multiple call sites.
