@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table'
 import type { Role } from '@/auth/authContext'
 import { api, ApiError } from '@/lib/api'
+import { DeleteUserDialog } from './DeleteUserDialog'
 import { EditUserDialog } from './EditUserDialog'
 
 export type UserListItem = {
@@ -70,8 +71,12 @@ export function UsersList() {
             <TableCell className="text-muted-foreground">
               {new Date(user.createdAt).toLocaleDateString()}
             </TableCell>
-            <TableCell className="text-right">
-              <EditUserDialog user={user} />
+            <TableCell>
+              <div className="flex gap-1">
+                <EditUserDialog user={user} />
+                {/* Admins can't be deleted (the API refuses too). */}
+                {user.role !== 'Admin' && <DeleteUserDialog user={user} />}
+              </div>
             </TableCell>
           </TableRow>
         ))}
@@ -124,7 +129,7 @@ function UsersListSkeleton() {
               <Skeleton className="h-4 w-20" />
             </TableCell>
             <TableCell>
-              <Skeleton className="ml-auto size-7 rounded-md" />
+              <Skeleton className="ml-auto h-7 w-15 rounded-md" />
             </TableCell>
           </TableRow>
         ))}

@@ -152,6 +152,20 @@ public static class UserEndpoints
         })
         .WithMetadata(new RequestSizeLimitAttribute(MaxUserBodyBytes));
 
+        // Soft delete: the row is kept with DeletedAt set and the query filter hides it from then on.
+        group.MapDelete("/{id:int}", async (int id, TicketManagementDbContext db) =>
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id);
+            if (user is null)
+                return Results.Problem("User not found.", statusCode: StatusCodes.Status404NotFound);
+            if (user.Role == Roles.Admin)
+                return Results.Problem("Admins cannot be deleted.", statusCode: StatusCodes.Status409Conflict);
+
+            user.DeletedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
+
         return app;
     }
 
