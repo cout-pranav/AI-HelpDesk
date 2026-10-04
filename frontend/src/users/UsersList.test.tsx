@@ -111,6 +111,17 @@ describe('UsersList', () => {
     expect(within(bodyRows[1]).getByRole('button', { name: 'Edit Alan Agent' })).toBeInTheDocument()
   })
 
+  it('offers delete on agent rows but not on admin rows', async () => {
+    respondWith(users)
+
+    renderWithQueryClient(<UsersList />)
+
+    const table = await screen.findByRole('table', { name: 'Users' })
+    const [, ...bodyRows] = within(table).getAllByRole('row')
+    expect(within(bodyRows[0]).queryByRole('button', { name: /^Delete/ })).not.toBeInTheDocument()
+    expect(within(bodyRows[1]).getByRole('button', { name: 'Delete Alan Agent' })).toBeInTheDocument()
+  })
+
   it('shows an empty state when there are no users', async () => {
     respondWith([])
 
