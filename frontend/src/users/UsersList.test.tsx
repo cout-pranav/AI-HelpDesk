@@ -63,6 +63,7 @@ describe('UsersList', () => {
       'Role',
       'Status',
       'Created',
+      'Actions',
     ])
     // Header row + 5 placeholder rows.
     expect(within(table).getAllByRole('row')).toHaveLength(6)
@@ -85,6 +86,7 @@ describe('UsersList', () => {
       'Admin',
       'Active',
       new Date(users[0].createdAt).toLocaleDateString(),
+      '',
     ])
 
     const agentCells = within(bodyRows[1]).getAllByRole('cell')
@@ -94,7 +96,19 @@ describe('UsersList', () => {
       'Agent',
       'Inactive',
       new Date(users[1].createdAt).toLocaleDateString(),
+      '',
     ])
+  })
+
+  it('has an edit button on every row, admins included', async () => {
+    respondWith(users)
+
+    renderWithQueryClient(<UsersList />)
+
+    const table = await screen.findByRole('table', { name: 'Users' })
+    const [, ...bodyRows] = within(table).getAllByRole('row')
+    expect(within(bodyRows[0]).getByRole('button', { name: 'Edit Ada Admin' })).toBeInTheDocument()
+    expect(within(bodyRows[1]).getByRole('button', { name: 'Edit Alan Agent' })).toBeInTheDocument()
   })
 
   it('shows an empty state when there are no users', async () => {
