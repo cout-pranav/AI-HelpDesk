@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table'
 import type { Role } from '@/auth/authContext'
 import { api, ApiError } from '@/lib/api'
+import { EditUserDialog } from './EditUserDialog'
 
 export type UserListItem = {
   id: number
@@ -69,6 +70,9 @@ export function UsersList() {
             <TableCell className="text-muted-foreground">
               {new Date(user.createdAt).toLocaleDateString()}
             </TableCell>
+            <TableCell className="text-right">
+              <EditUserDialog user={user} />
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -85,6 +89,9 @@ function UsersTableHeader() {
         <TableHead>Role</TableHead>
         <TableHead>Status</TableHead>
         <TableHead>Created</TableHead>
+        <TableHead className="w-0">
+          <span className="sr-only">Actions</span>
+        </TableHead>
       </TableRow>
     </TableHeader>
   )
@@ -115,6 +122,9 @@ function UsersListSkeleton() {
             </TableCell>
             <TableCell>
               <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="ml-auto size-7 rounded-md" />
             </TableCell>
           </TableRow>
         ))}

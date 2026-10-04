@@ -15,6 +15,9 @@ public record UserListItemDto(int Id, string Email, string DisplayName, string R
 
 public record CreateUserRequest(string? DisplayName, string? Email, string? Password);
 
+// A null or empty Password leaves the user's current password unchanged.
+public record UpdateUserRequest(string? DisplayName, string? Email, string? Password);
+
 public static class UserEndpoints
 {
     private const int MinDisplayNameLength = 3;
@@ -22,7 +25,7 @@ public static class UserEndpoints
     private const int MaxEmailLength = 256; // Users.Email column length
     private const int MinPasswordLength = 8;
     private const int MaxPasswordLength = 128;
-    private const long MaxCreateUserBodyBytes = 4096;
+    private const long MaxUserBodyBytes = 4096;
 
     public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
     {
@@ -52,18 +55,13 @@ public static class UserEndpoints
             var email = request.Email?.Trim() ?? string.Empty;
             var password = request.Password ?? string.Empty;
 
-            var errors = new Dictionary<string, string[]>();
-            if (displayName.Length < MinDisplayNameLength || displayName.Length > MaxDisplayNameLength)
-                errors["displayName"] = [$"Name must be between {MinDisplayNameLength} and {MaxDisplayNameLength} characters."];
-            if (email.Length == 0 || email.Length > MaxEmailLength
-                || !MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
-                errors["email"] = ["Enter a valid email address."];
-            if (password.Length < MinPasswordLength || password.Length > MaxPasswordLength)
-                errors["password"] = [$"Password must be between {MinPasswordLength} and {MaxPasswordLength} characters."];
+            var errors = ValidateProfile(displayName, email);
+            if (!IsValidPassword(password))
+                errors["password"] = [PasswordLengthMessage];
             if (errors.Count > 0)
                 return Results.ValidationProblem(errors);
 
-            var duplicate = Results.Problem("A user with this email already exists.", statusCode: StatusCodes.Status409Conflict);
+            var duplicate = DuplicateEmail();
             var normalizedEmail = User.NormalizeEmail(email);
             if (await db.Users.AnyAsync(u => u.Email == normalizedEmail))
                 return duplicate;
@@ -96,8 +94,85 @@ public static class UserEndpoints
 
             return Results.Created($"/api/users/{user.Id}", UserListItemDto.From(user));
         })
-        .WithMetadata(new RequestSizeLimitAttribute(MaxCreateUserBodyBytes));
+        .WithMetadata(new RequestSizeLimitAttribute(MaxUserBodyBytes));
+
+        // Updates name and email, and the password only when one is given. Role and status are left as they are.
+        group.MapPut("/{id:int}", async (
+            int id,
+            UpdateUserRequest request,
+            TicketManagementDbContext db,
+            IPasswordHasher<User> hasher) =>
+        {
+            var displayName = request.DisplayName?.Trim() ?? string.Empty;
+            var email = request.Email?.Trim() ?? string.Empty;
+            var password = request.Password;
+
+            var errors = ValidateProfile(displayName, email);
+            if (!string.IsNullOrEmpty(password) && !IsValidPassword(password))
+                errors["password"] = [PasswordLengthMessage];
+            if (errors.Count > 0)
+                return Results.ValidationProblem(errors);
+
+            var user = await db.Users.Include(u => u.Accounts).FirstOrDefaultAsync(u => u.Id == id);
+            if (user is null)
+                return Results.Problem("User not found.", statusCode: StatusCodes.Status404NotFound);
+
+            var duplicate = DuplicateEmail();
+            var normalizedEmail = User.NormalizeEmail(email);
+            if (await db.Users.AnyAsync(u => u.Email == normalizedEmail && u.Id != id))
+                return duplicate;
+
+            user.DisplayName = displayName;
+            user.Email = normalizedEmail;
+
+            if (!string.IsNullOrEmpty(password))
+            {
+                var credential = user.Accounts.FirstOrDefault(a => a.Provider == AuthProviders.Credential);
+                if (credential is null)
+                {
+                    credential = new Account { Provider = AuthProviders.Credential };
+                    user.Accounts.Add(credential);
+                }
+                credential.PasswordHash = hasher.HashPassword(user, password);
+            }
+
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Lost a race with a concurrent change to the same email (unique index on Users.Email).
+                if (await db.Users.AsNoTracking().AnyAsync(u => u.Email == normalizedEmail && u.Id != id))
+                    return duplicate;
+                throw;
+            }
+
+            return Results.Ok(UserListItemDto.From(user));
+        })
+        .WithMetadata(new RequestSizeLimitAttribute(MaxUserBodyBytes));
 
         return app;
     }
+
+    private static readonly string PasswordLengthMessage =
+        $"Password must be between {MinPasswordLength} and {MaxPasswordLength} characters.";
+
+    // Name and email rules shared by create and update.
+    private static Dictionary<string, string[]> ValidateProfile(string displayName, string email)
+    {
+        var errors = new Dictionary<string, string[]>();
+        if (displayName.Length < MinDisplayNameLength || displayName.Length > MaxDisplayNameLength)
+            errors["displayName"] = [$"Name must be between {MinDisplayNameLength} and {MaxDisplayNameLength} characters."];
+        if (email.Length == 0 || email.Length > MaxEmailLength
+            || !MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
+            errors["email"] = ["Enter a valid email address."];
+        return errors;
+    }
+
+    private static bool IsValidPassword(string password) =>
+        password.Length >= MinPasswordLength && password.Length <= MaxPasswordLength;
+
+    private static IResult DuplicateEmail() =>
+        Results.Problem("A user with this email already exists.", statusCode: StatusCodes.Status409Conflict);
 }
