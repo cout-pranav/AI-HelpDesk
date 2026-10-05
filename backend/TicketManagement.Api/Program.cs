@@ -78,5 +78,6 @@ app.MapControllers();
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
+app.MapInboundEmailEndpoints();
 
 app.Run();

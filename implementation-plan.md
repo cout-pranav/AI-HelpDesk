@@ -66,7 +66,9 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - README with setup/run instructions
 
 ## Deferred / Explicitly Out of Scope for v1
-- Real email ingestion (inbound webhook/IMAP) — tickets created via in-app form only
+- Provider-specific email ingestion (Brevo/SendGrid inbound webhook adapter or IMAP polling) — the provider-agnostic `POST /api/inbound-email` endpoint already turns each received email into a new ticket; a real mailbox still has to be wired to it
+- Threading customer replies onto existing tickets (every inbound email currently creates a new ticket)
+- Storing email attachments (only their file names are kept)
 - Auto-send without agent approval
 - Multi-language reply support
 - AI feedback loop (correcting classifications to improve future AI behavior)

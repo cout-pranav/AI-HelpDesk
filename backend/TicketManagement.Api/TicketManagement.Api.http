@@ -4,3 +4,18 @@ GET {{TicketManagement.Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# Simulates a received support email. The secret is the dev value of InboundEmail:Secret (appsettings.Development.json).
+POST {{TicketManagement.Api_HostAddress}}/api/inbound-email
+Content-Type: application/json
+X-Inbound-Email-Secret: 3656g4TeXG40Uh3Ttx_ymoBg1LmC1vNbtx6BPnIBczQ
+
+{
+  "messageId": "<example-1@mail.example.com>",
+  "from": { "email": "student@example.com", "name": "Jane Student" },
+  "subject": "Cannot log in",
+  "text": "Hi, I cannot log in to my account.",
+  "attachments": [ { "fileName": "screenshot.png" } ]
+}
+
+###

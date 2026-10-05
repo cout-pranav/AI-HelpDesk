@@ -12,6 +12,8 @@ public class TicketManagementDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<Ticket> Tickets => Set<Ticket>();
+    public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +41,32 @@ public class TicketManagementDbContext : DbContext
             // One account per provider per user.
             account.HasIndex(a => new { a.UserId, a.Provider }).IsUnique();
             account.Property(a => a.Provider).HasMaxLength(50).IsRequired();
+        });
+
+        modelBuilder.Entity<Ticket>(ticket =>
+        {
+            ticket.Property(t => t.Subject).HasMaxLength(200).IsRequired();
+            ticket.Property(t => t.Status).HasMaxLength(20).IsRequired();
+            ticket.Property(t => t.Category).HasMaxLength(30);
+            ticket.Property(t => t.Source).HasMaxLength(20).IsRequired();
+            ticket.Property(t => t.SubmitterEmail).HasMaxLength(256).IsRequired();
+            ticket.Property(t => t.SubmitterName).HasMaxLength(100);
+            ticket.HasIndex(t => t.Status);
+            ticket.HasIndex(t => t.CreatedAt);
+        });
+
+        modelBuilder.Entity<TicketMessage>(message =>
+        {
+            message.HasOne(m => m.Ticket)
+                .WithMany(t => t.Messages)
+                .HasForeignKey(m => m.TicketId)
+                .OnDelete(DeleteBehavior.Cascade);
+            message.Property(m => m.SenderEmail).HasMaxLength(256).IsRequired();
+            message.Property(m => m.SenderName).HasMaxLength(100);
+            message.Property(m => m.Body).IsRequired();
+            message.Property(m => m.ExternalMessageId).HasMaxLength(500);
+            // A redelivered email (same Message-ID) must not create a second ticket.
+            message.HasIndex(m => m.ExternalMessageId).IsUnique().HasFilter("[ExternalMessageId] IS NOT NULL");
         });
     }
 }
