@@ -1,9 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import { api, ApiError } from '@/lib/api'
-import type { TicketDetailData } from './TicketDetail'
+import { ApiError } from '@/lib/api'
 import type { TicketAssigneeData } from './ticketDisplay'
 import { useAssigneeOptions } from './useAssigneeOptions'
+import { useUpdateTicket } from './useUpdateTicket'
 
 const UNASSIGNED = ''
 
@@ -34,23 +33,8 @@ function AssigneeSelect({
   ticketId: number
   assignee: TicketAssigneeData | null
 }) {
-  const queryClient = useQueryClient()
   const users = useAssigneeOptions()
-
-  const assign = useMutation({
-    mutationFn: (userId: number | null) =>
-      api
-        .put<TicketDetailData>(`/api/tickets/${ticketId}/assignee`, { userId })
-        .then((r) => r.data),
-    onSuccess: (ticket) => {
-      queryClient.setQueryData(['tickets', 'detail', ticketId], ticket)
-      // List rows show the updated time, so refetch them; the detail is already current.
-      void queryClient.invalidateQueries({
-        queryKey: ['tickets'],
-        predicate: (query) => query.queryKey[1] !== 'detail',
-      })
-    },
-  })
+  const assign = useUpdateTicket(ticketId, 'assignee')
 
   // The current assignee always has an option (even before users load, or if they were since
   // deactivated); the rest are the active users.
@@ -69,12 +53,15 @@ function AssigneeSelect({
     <div className="grid gap-1">
       <NativeSelect
         size="sm"
+        className="w-full"
         aria-label="Assignee"
         aria-busy={assign.isPending || users.isPending || undefined}
         aria-invalid={errorMessage ? true : undefined}
         value={assignee ? String(assignee.id) : UNASSIGNED}
         disabled={assign.isPending || users.isPending}
-        onChange={(e) => assign.mutate(e.target.value === UNASSIGNED ? null : Number(e.target.value))}
+        onChange={(e) =>
+          assign.mutate({ userId: e.target.value === UNASSIGNED ? null : Number(e.target.value) })
+        }
       >
         <NativeSelectOption value={UNASSIGNED}>Unassigned</NativeSelectOption>
         {assignee && (

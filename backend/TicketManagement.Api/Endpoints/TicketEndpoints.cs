@@ -32,6 +32,11 @@ public record TicketAssigneeDto(int Id, string DisplayName, string Email);
 // A null UserId unassigns the ticket.
 public record AssignTicketRequest(int? UserId);
 
+public record UpdateTicketStatusRequest(string? Status);
+
+// A null Category clears it (back to uncategorized).
+public record UpdateTicketCategoryRequest(string? Category);
+
 public record TicketDetailDto(
     int Id,
     string Subject,
@@ -178,6 +183,57 @@ public static class TicketEndpoints
             return Results.Ok(await LoadDetail(db, id));
         })
         .RequireAuthorization(p => p.RequireRole(Roles.Admin));
+
+        // Agents resolve tickets, so any signed-in user may change status and category, in any direction
+        // (a resolved or closed ticket can be reopened).
+        group.MapPut("/{id:int}/status", async (int id, UpdateTicketStatusRequest request, TicketManagementDbContext db) =>
+        {
+            // Matched case-insensitively, stored with the canonical spelling.
+            var status = TicketStatuses.All.FirstOrDefault(
+                s => s.Equals(request.Status, StringComparison.OrdinalIgnoreCase));
+            if (status is null)
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["status"] = [$"Status must be one of: {string.Join(", ", TicketStatuses.All)}."],
+                });
+
+            var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == id);
+            if (ticket is null)
+                return TicketNotFound();
+
+            if (ticket.Status != status)
+            {
+                ticket.Status = status;
+                ticket.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+
+            return Results.Ok(await LoadDetail(db, id));
+        });
+
+        group.MapPut("/{id:int}/category", async (int id, UpdateTicketCategoryRequest request, TicketManagementDbContext db) =>
+        {
+            var category = request.Category is null ? null : TicketCategories.All.FirstOrDefault(
+                c => c.Equals(request.Category, StringComparison.OrdinalIgnoreCase));
+            if (request.Category is not null && category is null)
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["category"] = [$"Category must be one of: {string.Join(", ", TicketCategories.All)}, or null."],
+                });
+
+            var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == id);
+            if (ticket is null)
+                return TicketNotFound();
+
+            if (ticket.Category != category)
+            {
+                ticket.Category = category;
+                ticket.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+
+            return Results.Ok(await LoadDetail(db, id));
+        });
 
         return app;
     }

@@ -34,6 +34,8 @@ import { api, ApiError } from '@/lib/api'
 import {
   categoryLabels,
   statusVariants,
+  ticketCategories,
+  ticketStatuses,
   type TicketAssigneeData,
   type TicketCategory,
   type TicketStatus,
@@ -65,8 +67,6 @@ export type TicketListResponse = {
 
 export const TICKETS_PAGE_SIZE = 25
 
-const ticketStatuses = Object.keys(statusVariants) as TicketStatus[]
-const ticketCategories = Object.keys(categoryLabels) as TicketCategory[]
 
 // Column ids double as the API's sortBy values.
 const columnLabels = {

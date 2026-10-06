@@ -19,3 +19,6 @@ export const statusVariants: Record<TicketStatus, 'default' | 'secondary' | 'out
   Resolved: 'secondary',
   Closed: 'outline',
 }
+
+export const ticketStatuses = Object.keys(statusVariants) as TicketStatus[]
+export const ticketCategories = Object.keys(categoryLabels) as TicketCategory[]
