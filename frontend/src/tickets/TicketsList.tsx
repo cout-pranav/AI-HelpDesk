@@ -31,7 +31,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { api, ApiError } from '@/lib/api'
-import { categoryLabels, statusVariants, type TicketCategory, type TicketStatus } from './ticketDisplay'
+import {
+  categoryLabels,
+  statusVariants,
+  type TicketAssigneeData,
+  type TicketCategory,
+  type TicketStatus,
+} from './ticketDisplay'
+import { useAssigneeOptions } from './useAssigneeOptions'
 
 export type { TicketCategory, TicketStatus } from './ticketDisplay'
 
@@ -44,6 +51,7 @@ export type TicketListItem = {
   source: string
   submitterEmail: string
   submitterName: string | null
+  assignee: TicketAssigneeData | null
   createdAt: string
   updatedAt: string
 }
@@ -67,11 +75,15 @@ const columnLabels = {
   submitter: 'Submitter',
   status: 'Status',
   category: 'Category',
+  assignee: 'Assignee',
   createdAt: 'Received',
 } as const
 
 // The category filter value the API uses for tickets that haven't been classified yet.
 export const UNCATEGORIZED = 'uncategorized'
+
+// The assignee filter value for tickets nobody is assigned to; other values are user ids.
+export const UNASSIGNED = 'unassigned'
 
 // How long typing has to pause before the search is sent.
 export const SEARCH_DEBOUNCE_MS = 300
@@ -130,6 +142,13 @@ const columns = helper.columns([
       )
     },
   }),
+  helper.accessor((ticket) => ticket.assignee?.displayName ?? null, {
+    id: 'assignee',
+    header: columnLabels.assignee,
+    filterFn: filteredOnServer,
+    cell: (info) =>
+      info.getValue() ?? <span className="text-muted-foreground">Unassigned</span>,
+  }),
   helper.accessor('createdAt', {
     header: columnLabels.createdAt,
     sortDescFirst: true,
@@ -153,6 +172,7 @@ export function TicketsList() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const status = columnFilters.find((f) => f.id === 'status')?.value as string | undefined
   const category = columnFilters.find((f) => f.id === 'category')?.value as string | undefined
+  const assignee = columnFilters.find((f) => f.id === 'assignee')?.value as string | undefined
   // The search box updates searchInput on every keystroke; globalFilter is the trimmed term
   // actually sent to the API, set once typing pauses.
   const [searchInput, setSearchInput] = useState('')
@@ -160,9 +180,13 @@ export function TicketsList() {
   const filters = {
     ...(status && { status }),
     ...(category && { category }),
+    ...(assignee && { assignee }),
     ...(globalFilter && { search: globalFilter }),
   }
   const isFiltered = columnFilters.length > 0 || globalFilter !== ''
+
+  // If these fail to load, the filter still offers All and Unassigned.
+  const assigneeOptions = useAssigneeOptions()
 
   const tickets = useQuery({
     queryKey: ['tickets', { page, pageSize: TICKETS_PAGE_SIZE, sortBy, sortDir, ...filters }],
@@ -225,6 +249,7 @@ export function TicketsList() {
 
   const statusColumn = table.getColumn('status')
   const categoryColumn = table.getColumn('category')
+  const assigneeColumn = table.getColumn('assignee')
   const toolbar = (
     <div className="mb-4 flex flex-wrap items-end gap-3">
       <div className="grid w-full gap-1.5 sm:w-72">
@@ -271,6 +296,23 @@ export function TicketsList() {
             </NativeSelectOption>
           ))}
           <NativeSelectOption value={UNCATEGORIZED}>Uncategorized</NativeSelectOption>
+        </NativeSelect>
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="ticket-assignee-filter">Assignee</Label>
+        <NativeSelect
+          id="ticket-assignee-filter"
+          value={assignee ?? ''}
+          onChange={(e) => assigneeColumn?.setFilterValue(e.target.value)}
+        >
+          <NativeSelectOption value="">All assignees</NativeSelectOption>
+          <NativeSelectOption value={UNASSIGNED}>Unassigned</NativeSelectOption>
+          {assigneeOptions.data?.map((u) => (
+            <NativeSelectOption key={u.id} value={String(u.id)}>
+              {u.displayName}
+              {u.isActive ? '' : ' (inactive)'}
+            </NativeSelectOption>
+          ))}
         </NativeSelect>
       </div>
       {isFiltered && (
@@ -431,6 +473,9 @@ function TicketsListSkeleton() {
             </TableCell>
             <TableCell>
               <Skeleton className="h-4 w-28" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-24" />
             </TableCell>
             <TableCell>
               <Skeleton className="h-4 w-32" />

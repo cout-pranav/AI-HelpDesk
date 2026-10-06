@@ -11,6 +11,9 @@ public class Ticket
     public string Source { get; set; } = TicketSources.Email;
     public string SubmitterEmail { get; set; } = string.Empty;
     public string? SubmitterName { get; set; }
+    // The user working the ticket; null while unassigned. Only admins change it.
+    public int? AssigneeId { get; set; }
+    public User? Assignee { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public List<TicketMessage> Messages { get; set; } = [];

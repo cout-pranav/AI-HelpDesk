@@ -13,6 +13,7 @@ public record TicketListItemDto(
     string Source,
     string SubmitterEmail,
     string? SubmitterName,
+    TicketAssigneeDto? Assignee,
     DateTime CreatedAt,
     DateTime UpdatedAt);
 
@@ -26,6 +27,11 @@ public record TicketMessageDto(
     List<string> AttachmentNames,
     DateTime CreatedAt);
 
+public record TicketAssigneeDto(int Id, string DisplayName, string Email);
+
+// A null UserId unassigns the ticket.
+public record AssignTicketRequest(int? UserId);
+
 public record TicketDetailDto(
     int Id,
     string Subject,
@@ -36,6 +42,7 @@ public record TicketDetailDto(
     string? SubmitterName,
     DateTime CreatedAt,
     DateTime UpdatedAt,
+    TicketAssigneeDto? Assignee,
     List<TicketMessageDto> Messages);
 
 public static class TicketEndpoints
@@ -48,11 +55,11 @@ public static class TicketEndpoints
         // Agents and admins both work tickets, so any signed-in user may read them.
         var group = app.MapGroup("/api/tickets").RequireAuthorization();
 
-        // Optionally filtered by status/category and a search term, sorted by sortBy/sortDir
+        // Optionally filtered by status/category/assignee and a search term, sorted by sortBy/sortDir
         // (default newest first); Id breaks ties so paging is stable.
         group.MapGet("/", async (
             int? page, int? pageSize, string? sortBy, string? sortDir, string? status, string? category,
-            string? search, TicketManagementDbContext db) =>
+            string? assignee, string? search, TicketManagementDbContext db) =>
         {
             var pageNumber = page ?? 1;
             var size = pageSize ?? DefaultPageSize;
@@ -79,7 +86,12 @@ public static class TicketEndpoints
             if (category is not null && !uncategorized && categoryFilter is null)
                 errors["category"] =
                     [$"Category must be one of: {string.Join(", ", TicketCategories.All)}, {Uncategorized}."];
-            var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+            // "unassigned" or a user id.
+            var unassigned = assignee?.Equals(Unassigned, StringComparison.OrdinalIgnoreCase) == true;
+            int? assigneeFilter = int.TryParse(assignee, out var assigneeId) ? assigneeId : null;
+            if (assignee is not null && !unassigned && assigneeFilter is null)
+                errors["assignee"] = [$"Assignee must be a user id or {Unassigned}."];
+                        var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
             if (term?.Length > MaxSearchLength)
                 errors["search"] = [$"Search must be at most {MaxSearchLength} characters."];
             if (errors.Count > 0)
@@ -92,6 +104,10 @@ public static class TicketEndpoints
                 query = query.Where(t => t.Category == null);
             else if (categoryFilter is not null)
                 query = query.Where(t => t.Category == categoryFilter);
+            if (unassigned)
+                query = query.Where(t => t.AssigneeId == null);
+            else if (assigneeFilter is not null)
+                query = query.Where(t => t.AssigneeId == assigneeFilter);
             if (term is not null)
             {
                 // Substring match on what the list shows; the DB collation makes it case-insensitive.
@@ -116,6 +132,9 @@ public static class TicketEndpoints
                     t.Source,
                     t.SubmitterEmail,
                     t.SubmitterName,
+                    t.Assignee == null
+                        ? null
+                        : new TicketAssigneeDto(t.Assignee.Id, t.Assignee.DisplayName, t.Assignee.Email),
                     // Stored as UTC; mark it so JSON carries a "Z" and browsers don't read it as local time.
                     DateTime.SpecifyKind(t.CreatedAt, DateTimeKind.Utc),
                     DateTime.SpecifyKind(t.UpdatedAt, DateTimeKind.Utc)))
@@ -124,37 +143,79 @@ public static class TicketEndpoints
             return Results.Ok(new TicketListResponse(tickets, pageNumber, size, totalCount));
         });
 
-        // One ticket with its message thread, oldest message first.
+        // One ticket with its assignee and message thread, oldest message first.
         group.MapGet("/{id:int}", async (int id, TicketManagementDbContext db) =>
         {
-            var ticket = await db.Tickets
-                .AsNoTracking()
-                .Include(t => t.Messages.OrderBy(m => m.CreatedAt).ThenBy(m => m.Id))
-                .FirstOrDefaultAsync(t => t.Id == id);
-            if (ticket is null)
-                return Results.Problem("Ticket not found.", statusCode: StatusCodes.Status404NotFound);
-
-            return Results.Ok(new TicketDetailDto(
-                ticket.Id,
-                ticket.Subject,
-                ticket.Status,
-                ticket.Category,
-                ticket.Source,
-                ticket.SubmitterEmail,
-                ticket.SubmitterName,
-                // Stored as UTC but read back as Unspecified; see the list projection.
-                DateTime.SpecifyKind(ticket.CreatedAt, DateTimeKind.Utc),
-                DateTime.SpecifyKind(ticket.UpdatedAt, DateTimeKind.Utc),
-                ticket.Messages.Select(m => new TicketMessageDto(
-                    m.Id,
-                    m.SenderEmail,
-                    m.SenderName,
-                    m.Body,
-                    m.AttachmentNames,
-                    DateTime.SpecifyKind(m.CreatedAt, DateTimeKind.Utc))).ToList()));
+            var ticket = await LoadDetail(db, id);
+            return ticket is null ? TicketNotFound() : Results.Ok(ticket);
         });
 
+        // Assigns the ticket to an active user (agent or admin), or unassigns it. Returns the updated ticket.
+        group.MapPut("/{id:int}/assignee", async (int id, AssignTicketRequest request, TicketManagementDbContext db) =>
+        {
+            var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == id);
+            if (ticket is null)
+                return TicketNotFound();
+
+            if (request.UserId is int userId)
+            {
+                // Soft-deleted users are hidden by the query filter, so they fail this check too.
+                var assignable = await db.Users.AnyAsync(u => u.Id == userId && u.IsActive);
+                if (!assignable)
+                    return Results.ValidationProblem(new Dictionary<string, string[]>
+                    {
+                        ["userId"] = ["Assignee must be an active user."],
+                    });
+            }
+
+            if (ticket.AssigneeId != request.UserId)
+            {
+                ticket.AssigneeId = request.UserId;
+                ticket.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+
+            return Results.Ok(await LoadDetail(db, id));
+        })
+        .RequireAuthorization(p => p.RequireRole(Roles.Admin));
+
         return app;
+    }
+
+    private static IResult TicketNotFound() =>
+        Results.Problem("Ticket not found.", statusCode: StatusCodes.Status404NotFound);
+
+    private static async Task<TicketDetailDto?> LoadDetail(TicketManagementDbContext db, int id)
+    {
+        var ticket = await db.Tickets
+            .AsNoTracking()
+            .Include(t => t.Assignee)
+            .Include(t => t.Messages.OrderBy(m => m.CreatedAt).ThenBy(m => m.Id))
+            .FirstOrDefaultAsync(t => t.Id == id);
+        if (ticket is null)
+            return null;
+
+        return new TicketDetailDto(
+            ticket.Id,
+            ticket.Subject,
+            ticket.Status,
+            ticket.Category,
+            ticket.Source,
+            ticket.SubmitterEmail,
+            ticket.SubmitterName,
+            // Stored as UTC but read back as Unspecified; see the list projection.
+            DateTime.SpecifyKind(ticket.CreatedAt, DateTimeKind.Utc),
+            DateTime.SpecifyKind(ticket.UpdatedAt, DateTimeKind.Utc),
+            ticket.Assignee is { } assignee
+                ? new TicketAssigneeDto(assignee.Id, assignee.DisplayName, assignee.Email)
+                : null,
+            ticket.Messages.Select(m => new TicketMessageDto(
+                m.Id,
+                m.SenderEmail,
+                m.SenderName,
+                m.Body,
+                m.AttachmentNames,
+                DateTime.SpecifyKind(m.CreatedAt, DateTimeKind.Utc))).ToList());
     }
 
     private const int MaxSearchLength = 200;
@@ -162,11 +223,14 @@ public static class TicketEndpoints
     // The category filter value for tickets that haven't been classified yet.
     private const string Uncategorized = "uncategorized";
 
+    // The assignee filter value for tickets nobody is assigned to.
+    private const string Unassigned = "unassigned";
+
     // Values match the frontend's column ids.
     private const string DefaultSortBy = "createdAt";
     private static readonly HashSet<string> SortColumns = new(StringComparer.OrdinalIgnoreCase)
     {
-        "id", "subject", "submitter", "status", "category", "createdAt",
+        "id", "subject", "submitter", "status", "category", "assignee", "createdAt",
     };
 
     private static IQueryable<Ticket> ApplySort(IQueryable<Ticket> query, string sortBy, bool descending)
@@ -181,6 +245,8 @@ public static class TicketEndpoints
             "submitter" => OrderBy(query, t => t.SubmitterName ?? t.SubmitterEmail, descending),
             "status" => OrderBy(query, t => t.Status, descending),
             "category" => OrderBy(query, t => t.Category, descending),
+            // Unassigned tickets have no name, so they sort first ascending.
+            "assignee" => OrderBy(query, t => t.Assignee == null ? null : t.Assignee.DisplayName, descending),
             _ => OrderBy(query, t => t.CreatedAt, descending),
         };
         return descending ? ordered.ThenByDescending(t => t.Id) : ordered.ThenBy(t => t.Id);

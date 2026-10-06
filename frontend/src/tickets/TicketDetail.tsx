@@ -5,9 +5,11 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api, ApiError } from '@/lib/api'
+import { TicketAssignee } from './TicketAssignee'
 import {
   categoryLabels,
   statusVariants,
+  type TicketAssigneeData,
   type TicketCategory,
   type TicketStatus,
 } from './ticketDisplay'
@@ -31,6 +33,7 @@ export type TicketDetailData = {
   submitterName: string | null
   createdAt: string
   updatedAt: string
+  assignee: TicketAssigneeData | null
   messages: TicketMessage[]
 }
 
@@ -38,7 +41,8 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString()
 }
 
-export function TicketDetail({ ticketId }: { ticketId: number }) {
+// canAssign shows an assignee picker instead of plain text (admins only; the API enforces it too).
+export function TicketDetail({ ticketId, canAssign }: { ticketId: number; canAssign: boolean }) {
   const ticket = useQuery({
     queryKey: ['tickets', 'detail', ticketId],
     queryFn: () => api.get<TicketDetailData>(`/api/tickets/${ticketId}`).then((r) => r.data),
@@ -79,6 +83,10 @@ export function TicketDetail({ ticketId }: { ticketId: number }) {
             ) : (
               <span className="text-muted-foreground">Uncategorized</span>
             )}
+          </dd>
+          <dt className="text-muted-foreground">Assignee</dt>
+          <dd>
+            <TicketAssignee ticketId={t.id} assignee={t.assignee} canAssign={canAssign} />
           </dd>
           <dt className="text-muted-foreground">Submitter</dt>
           <dd>

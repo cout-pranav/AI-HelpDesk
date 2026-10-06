@@ -1,10 +1,12 @@
 import { AlertCircle, ArrowLeft } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import { useAuth } from '@/auth/authContext'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { TicketDetail } from '@/tickets/TicketDetail'
 
 export function TicketDetailPage() {
   const { id } = useParams()
+  const { user } = useAuth()
   // Only digits are a valid id; anything else would just 404 on the API.
   const ticketId = id && /^\d+$/.test(id) ? Number(id) : null
 
@@ -23,7 +25,7 @@ export function TicketDetailPage() {
           <AlertDescription>Ticket not found.</AlertDescription>
         </Alert>
       ) : (
-        <TicketDetail ticketId={ticketId} />
+        <TicketDetail ticketId={ticketId} canAssign={user?.role === 'Admin'} />
       )}
     </>
   )

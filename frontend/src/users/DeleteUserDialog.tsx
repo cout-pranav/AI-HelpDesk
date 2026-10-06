@@ -26,6 +26,8 @@ export function DeleteUserDialog({ user }: { user: UserListItem }) {
     mutationFn: () => api.delete(`/api/users/${user.id}`),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['users'] })
+      // The server unassigns the deleted user's tickets.
+      void queryClient.invalidateQueries({ queryKey: ['tickets'] })
       handleOpenChange(false)
     },
   })

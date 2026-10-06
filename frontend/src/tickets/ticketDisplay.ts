@@ -2,6 +2,12 @@
 export type TicketStatus = 'Open' | 'Resolved' | 'Closed'
 export type TicketCategory = 'GeneralQuestion' | 'TechnicalQuestion' | 'RefundRequest'
 
+export type TicketAssigneeData = {
+  id: number
+  displayName: string
+  email: string
+}
+
 export const categoryLabels: Record<TicketCategory, string> = {
   GeneralQuestion: 'General question',
   TechnicalQuestion: 'Technical question',

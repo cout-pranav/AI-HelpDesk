@@ -13,6 +13,9 @@ public record UserListItemDto(int Id, string Email, string DisplayName, string R
         new(user.Id, user.Email, user.DisplayName, user.Role, user.IsActive, user.CreatedAt);
 }
 
+// The names behind ticket assignees, for every signed-in user (the full user list is admin-only).
+public record AssigneeOptionDto(int Id, string DisplayName, bool IsActive);
+
 public record CreateUserRequest(string? DisplayName, string? Email, string? Password);
 
 // A null or empty Password leaves the user's current password unchanged.
@@ -29,6 +32,17 @@ public static class UserEndpoints
 
     public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
     {
+        // Agents need these to filter tickets by assignee, so this sits outside the admin-only group.
+        // Deactivated users are included because they may still be assigned tickets.
+        app.MapGet("/api/users/assignees", async (TicketManagementDbContext db) =>
+            Results.Ok(await db.Users
+                .AsNoTracking()
+                .OrderBy(u => u.DisplayName)
+                .ThenBy(u => u.Id)
+                .Select(u => new AssigneeOptionDto(u.Id, u.DisplayName, u.IsActive))
+                .ToListAsync()))
+            .RequireAuthorization();
+
         var group = app.MapGroup("/api/users")
             .RequireAuthorization(p => p.RequireRole(Roles.Admin));
 
@@ -162,6 +176,10 @@ public static class UserEndpoints
                 return Results.Problem("Admins cannot be deleted.", statusCode: StatusCodes.Status409Conflict);
 
             user.DeletedAt = DateTime.UtcNow;
+            // The query filter would hide a deleted assignee, so unassign their tickets in the same save.
+            var assigned = await db.Tickets.Where(t => t.AssigneeId == id).ToListAsync();
+            foreach (var ticket in assigned)
+                ticket.AssigneeId = null;
             await db.SaveChangesAsync();
             return Results.NoContent();
         });

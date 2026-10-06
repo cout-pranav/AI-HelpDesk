@@ -51,6 +51,12 @@ public class TicketManagementDbContext : DbContext
             ticket.Property(t => t.Source).HasMaxLength(20).IsRequired();
             ticket.Property(t => t.SubmitterEmail).HasMaxLength(256).IsRequired();
             ticket.Property(t => t.SubmitterName).HasMaxLength(100);
+            // Deleting a user unassigns their tickets; users are normally soft-deleted, which the
+            // delete endpoint handles itself.
+            ticket.HasOne(t => t.Assignee)
+                .WithMany()
+                .HasForeignKey(t => t.AssigneeId)
+                .OnDelete(DeleteBehavior.SetNull);
             ticket.HasIndex(t => t.Status);
             ticket.HasIndex(t => t.CreatedAt);
         });

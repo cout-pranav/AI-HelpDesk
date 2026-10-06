@@ -30,6 +30,7 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - API: list tickets with filtering (status, category) and sorting
 - API: get ticket detail (including message thread)
 - API: update ticket status (open/resolved/closed), assign category manually
+- API + frontend: admin assigns a ticket to an active agent/admin (or unassigns it) from the ticket detail view
 - API: agent adds a manual reply to a ticket
 - Frontend: public "submit a ticket" form
 - Frontend: ticket list view (filter/sort controls)
@@ -72,4 +73,4 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - Auto-send without agent approval
 - Multi-language reply support
 - AI feedback loop (correcting classifications to improve future AI behavior)
-- Ticket routing to specific agents (currently unassigned; any agent can pick up any ticket)
+- Automatic ticket routing to specific agents (admins can assign tickets manually; see Phase 2)
