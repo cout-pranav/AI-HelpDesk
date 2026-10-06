@@ -67,7 +67,7 @@ describe('TicketsList', () => {
 
     await screen.findByRole('table', { name: 'Tickets' })
     expect(getMock).toHaveBeenCalledExactlyOnceWith('/api/tickets', {
-      params: { page: 1, pageSize: TICKETS_PAGE_SIZE },
+      params: { page: 1, pageSize: TICKETS_PAGE_SIZE, sortBy: 'createdAt', sortDir: 'desc' },
     })
   })
 
@@ -134,11 +134,104 @@ describe('TicketsList', () => {
 
     expect(await within(pagination).findByText('Page 2 of 2')).toBeInTheDocument()
     expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
-      params: { page: 2, pageSize: TICKETS_PAGE_SIZE },
+      params: { page: 2, pageSize: TICKETS_PAGE_SIZE, sortBy: 'createdAt', sortDir: 'desc' },
     })
     expect(pagination).toHaveTextContent('Showing 26–26 of 27')
     expect(within(pagination).getByRole('button', { name: 'Next' })).toBeDisabled()
     expect(within(pagination).getByRole('button', { name: 'Previous' })).toBeEnabled()
+  })
+
+  it('shows sortable column headers, sorted by Received (newest first) by default', async () => {
+    respondWith({ items: tickets })
+
+    renderWithQueryClient(<TicketsList />)
+
+    const table = await screen.findByRole('table', { name: 'Tickets' })
+    const headers = within(table).getAllByRole('columnheader')
+    expect(headers.map((th) => within(th).getByRole('button').textContent)).toEqual([
+      'ID',
+      'Subject',
+      'Submitter',
+      'Status',
+      'Category',
+      'Received',
+    ])
+    expect(within(table).getByRole('columnheader', { name: 'Received' })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    )
+    expect(within(table).getByRole('columnheader', { name: 'Subject' })).not.toHaveAttribute(
+      'aria-sort',
+    )
+  })
+
+  it('asks the API to sort by a column when its header is clicked, toggling direction', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets })
+
+    renderWithQueryClient(<TicketsList />)
+
+    const table = await screen.findByRole('table', { name: 'Tickets' })
+    await user.click(within(table).getByRole('button', { name: 'Subject' }))
+
+    await vi.waitFor(() =>
+      expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+        params: { page: 1, pageSize: TICKETS_PAGE_SIZE, sortBy: 'subject', sortDir: 'asc' },
+      }),
+    )
+    const subjectHeader = within(table).getByRole('columnheader', { name: 'Subject' })
+    expect(subjectHeader).toHaveAttribute('aria-sort', 'ascending')
+    expect(within(table).getByRole('columnheader', { name: 'Received' })).not.toHaveAttribute(
+      'aria-sort',
+    )
+
+    await user.click(within(table).getByRole('button', { name: 'Subject' }))
+
+    await vi.waitFor(() =>
+      expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+        params: { page: 1, pageSize: TICKETS_PAGE_SIZE, sortBy: 'subject', sortDir: 'desc' },
+      }),
+    )
+    expect(subjectHeader).toHaveAttribute('aria-sort', 'descending')
+  })
+
+  it('renders rows in the order the API returns for the chosen sort', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets })
+
+    renderWithQueryClient(<TicketsList />)
+
+    const table = await screen.findByRole('table', { name: 'Tickets' })
+    respondWith({ items: [tickets[1], tickets[0]] })
+    await user.click(within(table).getByRole('button', { name: 'ID' }))
+
+    await vi.waitFor(() => {
+      const [, ...bodyRows] = within(table).getAllByRole('row')
+      expect(bodyRows.map((row) => within(row).getAllByRole('cell')[0].textContent)).toEqual([
+        '#1',
+        '#2',
+      ])
+    })
+  })
+
+  it('goes back to the first page when the sort order changes', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets, totalCount: TICKETS_PAGE_SIZE + 2 })
+
+    renderWithQueryClient(<TicketsList />)
+
+    const pagination = await screen.findByRole('navigation', { name: 'Pagination' })
+    respondWith({ items: [tickets[1]], page: 2, totalCount: TICKETS_PAGE_SIZE + 2 })
+    await user.click(within(pagination).getByRole('button', { name: 'Next' }))
+    expect(await within(pagination).findByText('Page 2 of 2')).toBeInTheDocument()
+
+    respondWith({ items: tickets, totalCount: TICKETS_PAGE_SIZE + 2 })
+    await user.click(screen.getByRole('button', { name: 'Status' }))
+
+    expect(await within(pagination).findByText('Page 1 of 2')).toBeInTheDocument()
+    expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+      params: { page: 1, pageSize: TICKETS_PAGE_SIZE, sortBy: 'status', sortDir: 'asc' },
+    })
   })
 
   it('shows an empty state when there are no tickets', async () => {

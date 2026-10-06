@@ -1,5 +1,14 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { AlertCircle } from 'lucide-react'
+import {
+  createColumnHelper,
+  functionalUpdate,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
+  type OnChangeFn,
+  type SortingState,
+} from '@tanstack/react-table'
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import { useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -52,17 +61,106 @@ const statusVariants: Record<TicketStatus, 'default' | 'secondary' | 'outline'> 
   Closed: 'outline',
 }
 
-// The API returns tickets newest first.
+// Column ids double as the API's sortBy values.
+const columnLabels = {
+  id: 'ID',
+  subject: 'Subject',
+  submitter: 'Submitter',
+  status: 'Status',
+  category: 'Category',
+  createdAt: 'Received',
+} as const
+
+// The API sorts, so no sorted row model is registered; the table only holds the sort state.
+const features = tableFeatures({ rowSortingFeature })
+const helper = createColumnHelper<typeof features, TicketListItem>()
+const columns = helper.columns([
+  helper.accessor('id', {
+    header: columnLabels.id,
+    cell: (info) => <span className="text-muted-foreground">#{info.getValue()}</span>,
+  }),
+  helper.accessor('subject', {
+    header: columnLabels.subject,
+    cell: (info) => (
+      <div className="max-w-md truncate font-medium" title={info.getValue()}>
+        {info.getValue()}
+      </div>
+    ),
+  }),
+  helper.accessor((ticket) => ticket.submitterName ?? ticket.submitterEmail, {
+    id: 'submitter',
+    header: columnLabels.submitter,
+    cell: ({ row: { original: ticket } }) => (
+      <>
+        <div>{ticket.submitterName ?? ticket.submitterEmail}</div>
+        {ticket.submitterName && (
+          <div className="text-xs text-muted-foreground">{ticket.submitterEmail}</div>
+        )}
+      </>
+    ),
+  }),
+  helper.accessor('status', {
+    header: columnLabels.status,
+    cell: (info) => <Badge variant={statusVariants[info.getValue()]}>{info.getValue()}</Badge>,
+  }),
+  helper.accessor('category', {
+    header: columnLabels.category,
+    cell: (info) => {
+      const category = info.getValue()
+      return category ? (
+        categoryLabels[category]
+      ) : (
+        <span className="text-muted-foreground">Uncategorized</span>
+      )
+    },
+  }),
+  helper.accessor('createdAt', {
+    header: columnLabels.createdAt,
+    sortDescFirst: true,
+    cell: (info) => (
+      <time className="text-muted-foreground" dateTime={info.getValue()}>
+        {new Date(info.getValue()).toLocaleString()}
+      </time>
+    ),
+  }),
+])
+
+const defaultSorting: SortingState = [{ id: 'createdAt', desc: true }]
+
 export function TicketsList() {
   const [page, setPage] = useState(1)
+  const [sorting, setSorting] = useState<SortingState>(defaultSorting)
+  // Sorting removal is disabled, so exactly one column is always sorted.
+  const sortBy = sorting[0]?.id ?? 'createdAt'
+  const sortDir = sorting[0]?.desc === false ? 'asc' : 'desc'
+
   const tickets = useQuery({
-    queryKey: ['tickets', { page, pageSize: TICKETS_PAGE_SIZE }],
+    queryKey: ['tickets', { page, pageSize: TICKETS_PAGE_SIZE, sortBy, sortDir }],
     queryFn: () =>
       api
-        .get<TicketListResponse>('/api/tickets', { params: { page, pageSize: TICKETS_PAGE_SIZE } })
+        .get<TicketListResponse>('/api/tickets', {
+          params: { page, pageSize: TICKETS_PAGE_SIZE, sortBy, sortDir },
+        })
         .then((r) => r.data),
-    // Keep showing the current page while the next one loads.
+    // Keep showing the current rows while the next page or sort order loads.
     placeholderData: keepPreviousData,
+  })
+
+  // A new sort order starts back at the first page.
+  const onSortingChange: OnChangeFn<SortingState> = (updater) => {
+    setSorting((old) => functionalUpdate(updater, old))
+    setPage(1)
+  }
+
+  const table = useTable({
+    features,
+    columns,
+    data: tickets.data?.items ?? [],
+    getRowId: (ticket) => String(ticket.id),
+    manualSorting: true,
+    enableSortingRemoval: false,
+    state: { sorting },
+    onSortingChange,
   })
 
   if (tickets.isPending) {
@@ -93,29 +191,44 @@ export function TicketsList() {
     <>
       <Table aria-busy={tickets.isPlaceholderData || undefined}>
         <TableCaption className="sr-only">Tickets</TableCaption>
-        <TicketsTableHeader />
+        <TableHeader>
+          {table.getHeaderGroups().map((group) => (
+            <TableRow key={group.id}>
+              {group.headers.map((header) => {
+                const sorted = header.column.getIsSorted()
+                const SortIcon =
+                  sorted === 'asc' ? ArrowUp : sorted === 'desc' ? ArrowDown : ArrowUpDown
+                return (
+                  <TableHead
+                    key={header.id}
+                    className={header.column.id === 'id' ? 'w-0' : undefined}
+                    aria-sort={
+                      sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined
+                    }
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="-ml-2.5"
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      <table.FlexRender header={header} />
+                      <SortIcon className={sorted ? undefined : 'text-muted-foreground'} />
+                    </Button>
+                  </TableHead>
+                )
+              })}
+            </TableRow>
+          ))}
+        </TableHeader>
         <TableBody>
-          {items.map((ticket) => (
-            <TableRow key={ticket.id}>
-              <TableCell className="text-muted-foreground">#{ticket.id}</TableCell>
-              <TableCell className="max-w-md truncate font-medium" title={ticket.subject}>
-                {ticket.subject}
-              </TableCell>
-              <TableCell>
-                <div>{ticket.submitterName ?? ticket.submitterEmail}</div>
-                {ticket.submitterName && (
-                  <div className="text-xs text-muted-foreground">{ticket.submitterEmail}</div>
-                )}
-              </TableCell>
-              <TableCell>
-                <Badge variant={statusVariants[ticket.status]}>{ticket.status}</Badge>
-              </TableCell>
-              <TableCell className={ticket.category ? undefined : 'text-muted-foreground'}>
-                {ticket.category ? categoryLabels[ticket.category] : 'Uncategorized'}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                <time dateTime={ticket.createdAt}>{new Date(ticket.createdAt).toLocaleString()}</time>
-              </TableCell>
+          {table.getRowModel().rows.map((row) => (
+            <TableRow key={row.id}>
+              {row.getAllCells().map((cell) => (
+                <TableCell key={cell.id}>
+                  <table.FlexRender cell={cell} />
+                </TableCell>
+              ))}
             </TableRow>
           ))}
         </TableBody>
@@ -150,21 +263,6 @@ export function TicketsList() {
   )
 }
 
-function TicketsTableHeader() {
-  return (
-    <TableHeader>
-      <TableRow>
-        <TableHead className="w-0">ID</TableHead>
-        <TableHead>Subject</TableHead>
-        <TableHead>Submitter</TableHead>
-        <TableHead>Status</TableHead>
-        <TableHead>Category</TableHead>
-        <TableHead>Received</TableHead>
-      </TableRow>
-    </TableHeader>
-  )
-}
-
 const SKELETON_ROWS = 5
 
 // Mirrors the real table's columns so the layout doesn't shift when data arrives.
@@ -172,7 +270,15 @@ function TicketsListSkeleton() {
   return (
     <Table aria-busy="true">
       <TableCaption className="sr-only">Loading tickets…</TableCaption>
-      <TicketsTableHeader />
+      <TableHeader>
+        <TableRow>
+          {Object.entries(columnLabels).map(([id, label]) => (
+            <TableHead key={id} className={id === 'id' ? 'w-0' : undefined}>
+              {label}
+            </TableHead>
+          ))}
+        </TableRow>
+      </TableHeader>
       <TableBody>
         {Array.from({ length: SKELETON_ROWS }, (_, i) => (
           <TableRow key={i} className="hover:bg-transparent">

@@ -1,5 +1,7 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using TicketManagement.Api.Data;
+using TicketManagement.Api.Models;
 
 namespace TicketManagement.Api.Endpoints;
 
@@ -26,24 +28,29 @@ public static class TicketEndpoints
         // Agents and admins both work tickets, so any signed-in user may read them.
         var group = app.MapGroup("/api/tickets").RequireAuthorization();
 
-        // Newest first; Id breaks ties so paging is stable when tickets share a timestamp.
-        group.MapGet("/", async (int? page, int? pageSize, TicketManagementDbContext db) =>
+        // Sorted by sortBy/sortDir (default newest first); Id breaks ties so paging is stable.
+        group.MapGet("/", async (
+            int? page, int? pageSize, string? sortBy, string? sortDir, TicketManagementDbContext db) =>
         {
             var pageNumber = page ?? 1;
             var size = pageSize ?? DefaultPageSize;
+            var sortKey = sortBy ?? DefaultSortBy;
+            var direction = sortDir ?? "desc";
             var errors = new Dictionary<string, string[]>();
             if (pageNumber < 1)
                 errors["page"] = ["Page must be 1 or greater."];
             if (size < 1 || size > MaxPageSize)
                 errors["pageSize"] = [$"Page size must be between 1 and {MaxPageSize}."];
+            if (!SortColumns.Contains(sortKey))
+                errors["sortBy"] = [$"Sort column must be one of: {string.Join(", ", SortColumns)}."];
+            var descending = direction.Equals("desc", StringComparison.OrdinalIgnoreCase);
+            if (!descending && !direction.Equals("asc", StringComparison.OrdinalIgnoreCase))
+                errors["sortDir"] = ["Sort direction must be asc or desc."];
             if (errors.Count > 0)
                 return Results.ValidationProblem(errors);
 
             var totalCount = await db.Tickets.CountAsync();
-            var tickets = await db.Tickets
-                .AsNoTracking()
-                .OrderByDescending(t => t.CreatedAt)
-                .ThenByDescending(t => t.Id)
+            var tickets = await ApplySort(db.Tickets.AsNoTracking(), sortKey, descending)
                 .Skip((pageNumber - 1) * size)
                 .Take(size)
                 .Select(t => new TicketListItemDto(
@@ -64,4 +71,32 @@ public static class TicketEndpoints
 
         return app;
     }
+
+    // Values match the frontend's column ids.
+    private const string DefaultSortBy = "createdAt";
+    private static readonly HashSet<string> SortColumns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "id", "subject", "submitter", "status", "category", "createdAt",
+    };
+
+    private static IQueryable<Ticket> ApplySort(IQueryable<Ticket> query, string sortBy, bool descending)
+    {
+        if (sortBy.Equals("id", StringComparison.OrdinalIgnoreCase))
+            return descending ? query.OrderByDescending(t => t.Id) : query.OrderBy(t => t.Id);
+
+        IOrderedQueryable<Ticket> ordered = sortBy.ToLowerInvariant() switch
+        {
+            "subject" => OrderBy(query, t => t.Subject, descending),
+            // The list shows the name, falling back to the email, so sort the same way.
+            "submitter" => OrderBy(query, t => t.SubmitterName ?? t.SubmitterEmail, descending),
+            "status" => OrderBy(query, t => t.Status, descending),
+            "category" => OrderBy(query, t => t.Category, descending),
+            _ => OrderBy(query, t => t.CreatedAt, descending),
+        };
+        return descending ? ordered.ThenByDescending(t => t.Id) : ordered.ThenBy(t => t.Id);
+    }
+
+    private static IOrderedQueryable<Ticket> OrderBy<TKey>(
+        IQueryable<Ticket> query, Expression<Func<Ticket, TKey>> key, bool descending) =>
+        descending ? query.OrderByDescending(key) : query.OrderBy(key);
 }
