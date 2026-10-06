@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
@@ -20,6 +21,15 @@ vi.mock('@/lib/api', async (importOriginal) => {
 })
 
 const getMock = vi.mocked(api.get)
+
+// Subjects are router links, so the list needs a router around it.
+function renderList() {
+  return renderWithQueryClient(
+    <MemoryRouter>
+      <TicketsList />
+    </MemoryRouter>,
+  )
+}
 
 function respondWith(response: Partial<TicketListResponse> & { items: TicketListItem[] }) {
   const data: TicketListResponse = {
@@ -65,7 +75,7 @@ describe('TicketsList', () => {
   it('fetches the first page of tickets', async () => {
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     await screen.findByRole('table', { name: 'Tickets' })
     expect(getMock).toHaveBeenCalledExactlyOnceWith('/api/tickets', {
@@ -76,7 +86,7 @@ describe('TicketsList', () => {
   it('shows a busy skeleton table while loading', () => {
     getMock.mockReturnValue(new Promise(() => {}))
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     const table = screen.getByRole('table', { name: 'Loading tickets…' })
     expect(table).toHaveAttribute('aria-busy', 'true')
@@ -95,7 +105,7 @@ describe('TicketsList', () => {
   it('renders tickets in the order the API returns them (newest first)', async () => {
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     const table = await screen.findByRole('table', { name: 'Tickets' })
     const [, ...bodyRows] = within(table).getAllByRole('row')
@@ -120,11 +130,27 @@ describe('TicketsList', () => {
     ])
   })
 
+  it('links each subject to its ticket detail page', async () => {
+    respondWith({ items: tickets })
+
+    renderList()
+
+    const table = await screen.findByRole('table', { name: 'Tickets' })
+    expect(within(table).getByRole('link', { name: 'Refund for duplicate charge' })).toHaveAttribute(
+      'href',
+      '/tickets/2',
+    )
+    expect(within(table).getByRole('link', { name: 'Cannot log in' })).toHaveAttribute(
+      'href',
+      '/tickets/1',
+    )
+  })
+
   it('pages through tickets with Previous and Next', async () => {
     const user = userEvent.setup()
     respondWith({ items: tickets, totalCount: TICKETS_PAGE_SIZE + 2 })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     const pagination = await screen.findByRole('navigation', { name: 'Pagination' })
     expect(pagination).toHaveTextContent('Showing 1–2 of 27')
@@ -146,7 +172,7 @@ describe('TicketsList', () => {
   it('shows sortable column headers, sorted by Received (newest first) by default', async () => {
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     const table = await screen.findByRole('table', { name: 'Tickets' })
     const headers = within(table).getAllByRole('columnheader')
@@ -171,7 +197,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     const table = await screen.findByRole('table', { name: 'Tickets' })
     await user.click(within(table).getByRole('button', { name: 'Subject' }))
@@ -201,7 +227,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     const table = await screen.findByRole('table', { name: 'Tickets' })
     respondWith({ items: [tickets[1], tickets[0]] })
@@ -220,7 +246,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets, totalCount: TICKETS_PAGE_SIZE + 2 })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     const pagination = await screen.findByRole('navigation', { name: 'Pagination' })
     respondWith({ items: [tickets[1]], page: 2, totalCount: TICKETS_PAGE_SIZE + 2 })
@@ -239,7 +265,7 @@ describe('TicketsList', () => {
   it('shows status and category filters, unfiltered by default', async () => {
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     await screen.findByRole('table', { name: 'Tickets' })
     const status = screen.getByRole('combobox', { name: 'Status' })
@@ -266,7 +292,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     await screen.findByRole('table', { name: 'Tickets' })
     await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'Resolved')
@@ -303,7 +329,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     await screen.findByRole('table', { name: 'Tickets' })
     await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'Open')
@@ -324,7 +350,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets, totalCount: TICKETS_PAGE_SIZE + 2 })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     const pagination = await screen.findByRole('navigation', { name: 'Pagination' })
     respondWith({ items: [tickets[1]], page: 2, totalCount: TICKETS_PAGE_SIZE + 2 })
@@ -350,7 +376,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     await screen.findByRole('table', { name: 'Tickets' })
     const search = screen.getByRole('searchbox', { name: 'Search' })
@@ -377,7 +403,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     await screen.findByRole('table', { name: 'Tickets' })
     await user.type(screen.getByRole('searchbox', { name: 'Search' }), '   ')
@@ -391,7 +417,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     await screen.findByRole('table', { name: 'Tickets' })
     const search = screen.getByRole('searchbox', { name: 'Search' })
@@ -425,7 +451,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets, totalCount: TICKETS_PAGE_SIZE + 2 })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     const pagination = await screen.findByRole('navigation', { name: 'Pagination' })
     respondWith({ items: [tickets[1]], page: 2, totalCount: TICKETS_PAGE_SIZE + 2 })
@@ -451,7 +477,7 @@ describe('TicketsList', () => {
     const user = userEvent.setup()
     respondWith({ items: tickets })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     await screen.findByRole('table', { name: 'Tickets' })
     respondWith({ items: [] })
@@ -466,7 +492,7 @@ describe('TicketsList', () => {
   it('shows an empty state when there are no tickets', async () => {
     respondWith({ items: [] })
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     expect(await screen.findByText('No tickets yet.')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
@@ -475,7 +501,7 @@ describe('TicketsList', () => {
   it('shows the API error message when the request fails', async () => {
     getMock.mockRejectedValue(new ApiError(500, 'Something broke.'))
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Something broke.')
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
@@ -484,7 +510,7 @@ describe('TicketsList', () => {
   it('shows a generic message for non-API errors', async () => {
     getMock.mockRejectedValue(new Error('Network Error'))
 
-    renderWithQueryClient(<TicketsList />)
+    renderList()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load tickets.')
   })
