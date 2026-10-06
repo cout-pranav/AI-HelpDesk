@@ -6,4 +6,6 @@ public static class TicketCategories
     public const string GeneralQuestion = "GeneralQuestion";
     public const string TechnicalQuestion = "TechnicalQuestion";
     public const string RefundRequest = "RefundRequest";
+
+    public static readonly string[] All = [GeneralQuestion, TechnicalQuestion, RefundRequest];
 }

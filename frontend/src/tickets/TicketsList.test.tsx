@@ -5,8 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
 import {
+  SEARCH_DEBOUNCE_MS,
   TICKETS_PAGE_SIZE,
   TicketsList,
+  UNCATEGORIZED,
   type TicketListItem,
   type TicketListResponse,
 } from './TicketsList'
@@ -232,6 +234,233 @@ describe('TicketsList', () => {
     expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
       params: { page: 1, pageSize: TICKETS_PAGE_SIZE, sortBy: 'status', sortDir: 'asc' },
     })
+  })
+
+  it('shows status and category filters, unfiltered by default', async () => {
+    respondWith({ items: tickets })
+
+    renderWithQueryClient(<TicketsList />)
+
+    await screen.findByRole('table', { name: 'Tickets' })
+    const status = screen.getByRole('combobox', { name: 'Status' })
+    const category = screen.getByRole('combobox', { name: 'Category' })
+    expect(status).toHaveValue('')
+    expect(category).toHaveValue('')
+    expect(within(status).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'All statuses',
+      'Open',
+      'Resolved',
+      'Closed',
+    ])
+    expect(within(category).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'All categories',
+      'General question',
+      'Technical question',
+      'Refund request',
+      'Uncategorized',
+    ])
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+  })
+
+  it('asks the API for the chosen status and category', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets })
+
+    renderWithQueryClient(<TicketsList />)
+
+    await screen.findByRole('table', { name: 'Tickets' })
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'Resolved')
+
+    await vi.waitFor(() =>
+      expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+        params: {
+          page: 1,
+          pageSize: TICKETS_PAGE_SIZE,
+          sortBy: 'createdAt',
+          sortDir: 'desc',
+          status: 'Resolved',
+        },
+      }),
+    )
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Category' }), 'Uncategorized')
+
+    await vi.waitFor(() =>
+      expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+        params: {
+          page: 1,
+          pageSize: TICKETS_PAGE_SIZE,
+          sortBy: 'createdAt',
+          sortDir: 'desc',
+          status: 'Resolved',
+          category: UNCATEGORIZED,
+        },
+      }),
+    )
+  })
+
+  it('clears the filters', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets })
+
+    renderWithQueryClient(<TicketsList />)
+
+    await screen.findByRole('table', { name: 'Tickets' })
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'Open')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Category' }), 'Refund request')
+    await user.click(await screen.findByRole('button', { name: 'Clear filters' }))
+
+    await vi.waitFor(() =>
+      expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+        params: { page: 1, pageSize: TICKETS_PAGE_SIZE, sortBy: 'createdAt', sortDir: 'desc' },
+      }),
+    )
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Category' })).toHaveValue('')
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+  })
+
+  it('goes back to the first page when a filter changes', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets, totalCount: TICKETS_PAGE_SIZE + 2 })
+
+    renderWithQueryClient(<TicketsList />)
+
+    const pagination = await screen.findByRole('navigation', { name: 'Pagination' })
+    respondWith({ items: [tickets[1]], page: 2, totalCount: TICKETS_PAGE_SIZE + 2 })
+    await user.click(within(pagination).getByRole('button', { name: 'Next' }))
+    expect(await within(pagination).findByText('Page 2 of 2')).toBeInTheDocument()
+
+    respondWith({ items: tickets, totalCount: TICKETS_PAGE_SIZE + 2 })
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'Open')
+
+    expect(await within(pagination).findByText('Page 1 of 2')).toBeInTheDocument()
+    expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+      params: {
+        page: 1,
+        pageSize: TICKETS_PAGE_SIZE,
+        sortBy: 'createdAt',
+        sortDir: 'desc',
+        status: 'Open',
+      },
+    })
+  })
+
+  it('sends the trimmed search once typing pauses, not on every keystroke', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets })
+
+    renderWithQueryClient(<TicketsList />)
+
+    await screen.findByRole('table', { name: 'Tickets' })
+    const search = screen.getByRole('searchbox', { name: 'Search' })
+    expect(search).toHaveValue('')
+    await user.type(search, '  refund ')
+
+    await vi.waitFor(() =>
+      expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+        params: {
+          page: 1,
+          pageSize: TICKETS_PAGE_SIZE,
+          sortBy: 'createdAt',
+          sortDir: 'desc',
+          search: 'refund',
+        },
+      }),
+    )
+    // The initial load plus one search request.
+    expect(getMock).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument()
+  })
+
+  it('does not search for whitespace only', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets })
+
+    renderWithQueryClient(<TicketsList />)
+
+    await screen.findByRole('table', { name: 'Tickets' })
+    await user.type(screen.getByRole('searchbox', { name: 'Search' }), '   ')
+    await new Promise((resolve) => setTimeout(resolve, SEARCH_DEBOUNCE_MS + 100))
+
+    expect(getMock).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+  })
+
+  it('clears the search along with the other filters', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets })
+
+    renderWithQueryClient(<TicketsList />)
+
+    await screen.findByRole('table', { name: 'Tickets' })
+    const search = screen.getByRole('searchbox', { name: 'Search' })
+    await user.type(search, '#2')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'Open')
+    await vi.waitFor(() =>
+      expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+        params: {
+          page: 1,
+          pageSize: TICKETS_PAGE_SIZE,
+          sortBy: 'createdAt',
+          sortDir: 'desc',
+          status: 'Open',
+          search: '#2',
+        },
+      }),
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }))
+
+    await vi.waitFor(() =>
+      expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+        params: { page: 1, pageSize: TICKETS_PAGE_SIZE, sortBy: 'createdAt', sortDir: 'desc' },
+      }),
+    )
+    expect(search).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('')
+  })
+
+  it('goes back to the first page when the search changes', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets, totalCount: TICKETS_PAGE_SIZE + 2 })
+
+    renderWithQueryClient(<TicketsList />)
+
+    const pagination = await screen.findByRole('navigation', { name: 'Pagination' })
+    respondWith({ items: [tickets[1]], page: 2, totalCount: TICKETS_PAGE_SIZE + 2 })
+    await user.click(within(pagination).getByRole('button', { name: 'Next' }))
+    expect(await within(pagination).findByText('Page 2 of 2')).toBeInTheDocument()
+
+    respondWith({ items: tickets, totalCount: TICKETS_PAGE_SIZE + 2 })
+    await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'log in')
+
+    expect(await within(pagination).findByText('Page 1 of 2')).toBeInTheDocument()
+    expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+      params: {
+        page: 1,
+        pageSize: TICKETS_PAGE_SIZE,
+        sortBy: 'createdAt',
+        sortDir: 'desc',
+        search: 'log in',
+      },
+    })
+  })
+
+  it('says when no tickets match the filters, and keeps the filters usable', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets })
+
+    renderWithQueryClient(<TicketsList />)
+
+    await screen.findByRole('table', { name: 'Tickets' })
+    respondWith({ items: [] })
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'Closed')
+
+    expect(await screen.findByText('No tickets match these filters.')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveValue('Closed')
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument()
   })
 
   it('shows an empty state when there are no tickets', async () => {

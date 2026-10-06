@@ -1,18 +1,24 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
+  columnFilteringFeature,
   createColumnHelper,
   functionalUpdate,
+  globalFilteringFeature,
   rowSortingFeature,
   tableFeatures,
   useTable,
+  type ColumnFiltersState,
   type OnChangeFn,
   type SortingState,
 } from '@tanstack/react-table'
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
-import { useState } from 'react'
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Search, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -61,6 +67,9 @@ const statusVariants: Record<TicketStatus, 'default' | 'secondary' | 'outline'> 
   Closed: 'outline',
 }
 
+const ticketStatuses = Object.keys(statusVariants) as TicketStatus[]
+const ticketCategories = Object.keys(categoryLabels) as TicketCategory[]
+
 // Column ids double as the API's sortBy values.
 const columnLabels = {
   id: 'ID',
@@ -71,8 +80,15 @@ const columnLabels = {
   createdAt: 'Received',
 } as const
 
-// The API sorts, so no sorted row model is registered; the table only holds the sort state.
-const features = tableFeatures({ rowSortingFeature })
+// The category filter value the API uses for tickets that haven't been classified yet.
+export const UNCATEGORIZED = 'uncategorized'
+
+// How long typing has to pause before the search is sent.
+export const SEARCH_DEBOUNCE_MS = 300
+
+// The API sorts, filters and searches, so no sorted or filtered row models are registered; the
+// table only holds the sort, filter and search state.
+const features = tableFeatures({ rowSortingFeature, columnFilteringFeature, globalFilteringFeature })
 const helper = createColumnHelper<typeof features, TicketListItem>()
 const columns = helper.columns([
   helper.accessor('id', {
@@ -133,22 +149,45 @@ export function TicketsList() {
   // Sorting removal is disabled, so exactly one column is always sorted.
   const sortBy = sorting[0]?.id ?? 'createdAt'
   const sortDir = sorting[0]?.desc === false ? 'asc' : 'desc'
+  // Cleared filters are removed from the state, so these are undefined when not filtering.
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const status = columnFilters.find((f) => f.id === 'status')?.value as string | undefined
+  const category = columnFilters.find((f) => f.id === 'category')?.value as string | undefined
+  // The search box updates searchInput on every keystroke; globalFilter is the trimmed term
+  // actually sent to the API, set once typing pauses.
+  const [searchInput, setSearchInput] = useState('')
+  const [globalFilter, setGlobalFilter] = useState('')
+  const filters = {
+    ...(status && { status }),
+    ...(category && { category }),
+    ...(globalFilter && { search: globalFilter }),
+  }
+  const isFiltered = columnFilters.length > 0 || globalFilter !== ''
 
   const tickets = useQuery({
-    queryKey: ['tickets', { page, pageSize: TICKETS_PAGE_SIZE, sortBy, sortDir }],
+    queryKey: ['tickets', { page, pageSize: TICKETS_PAGE_SIZE, sortBy, sortDir, ...filters }],
     queryFn: () =>
       api
         .get<TicketListResponse>('/api/tickets', {
-          params: { page, pageSize: TICKETS_PAGE_SIZE, sortBy, sortDir },
+          params: { page, pageSize: TICKETS_PAGE_SIZE, sortBy, sortDir, ...filters },
         })
         .then((r) => r.data),
-    // Keep showing the current rows while the next page or sort order loads.
+    // Keep showing the current rows while the next page, sort order or filter loads.
     placeholderData: keepPreviousData,
   })
 
-  // A new sort order starts back at the first page.
+  // A new sort order or filter starts back at the first page.
   const onSortingChange: OnChangeFn<SortingState> = (updater) => {
     setSorting((old) => functionalUpdate(updater, old))
+    setPage(1)
+  }
+  const onColumnFiltersChange: OnChangeFn<ColumnFiltersState> = (updater) => {
+    setColumnFilters((old) => functionalUpdate(updater, old))
+    setPage(1)
+  }
+  const onGlobalFilterChange: OnChangeFn<string> = (updater) => {
+    // resetGlobalFilter(true) sets undefined; keep the state a string.
+    setGlobalFilter((old) => functionalUpdate(updater, old) ?? '')
     setPage(1)
   }
 
@@ -158,29 +197,124 @@ export function TicketsList() {
     data: tickets.data?.items ?? [],
     getRowId: (ticket) => String(ticket.id),
     manualSorting: true,
+    manualFiltering: true,
     enableSortingRemoval: false,
-    state: { sorting },
+    state: { sorting, columnFilters, globalFilter },
     onSortingChange,
+    onColumnFiltersChange,
+    onGlobalFilterChange,
   })
 
+  // Send the search once typing pauses, so each keystroke doesn't fire a request. This sets the
+  // state directly because `table` is a new object on every render and would restart the timer.
+  useEffect(() => {
+    const term = searchInput.trim()
+    if (term === globalFilter) return
+    const timer = setTimeout(() => {
+      setGlobalFilter(term)
+      setPage(1)
+    }, SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [searchInput, globalFilter])
+
+  const clearFilters = () => {
+    setSearchInput('')
+    table.resetGlobalFilter(true)
+    table.resetColumnFilters(true)
+  }
+
+  const statusColumn = table.getColumn('status')
+  const categoryColumn = table.getColumn('category')
+  const toolbar = (
+    <div className="mb-4 flex flex-wrap items-end gap-3">
+      <div className="grid w-full gap-1.5 sm:w-72">
+        <Label htmlFor="ticket-search">Search</Label>
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="ticket-search"
+            type="search"
+            className="pl-8"
+            placeholder="Subject, submitter or #ID"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="ticket-status-filter">Status</Label>
+        <NativeSelect
+          id="ticket-status-filter"
+          value={status ?? ''}
+          // An empty value removes the filter.
+          onChange={(e) => statusColumn?.setFilterValue(e.target.value)}
+        >
+          <NativeSelectOption value="">All statuses</NativeSelectOption>
+          {ticketStatuses.map((s) => (
+            <NativeSelectOption key={s} value={s}>
+              {s}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="ticket-category-filter">Category</Label>
+        <NativeSelect
+          id="ticket-category-filter"
+          value={category ?? ''}
+          onChange={(e) => categoryColumn?.setFilterValue(e.target.value)}
+        >
+          <NativeSelectOption value="">All categories</NativeSelectOption>
+          {ticketCategories.map((c) => (
+            <NativeSelectOption key={c} value={c}>
+              {categoryLabels[c]}
+            </NativeSelectOption>
+          ))}
+          <NativeSelectOption value={UNCATEGORIZED}>Uncategorized</NativeSelectOption>
+        </NativeSelect>
+      </div>
+      {isFiltered && (
+        <Button variant="ghost" onClick={clearFilters}>
+          <X />
+          Clear filters
+        </Button>
+      )}
+    </div>
+  )
+
   if (tickets.isPending) {
-    return <TicketsListSkeleton />
+    return (
+      <>
+        {toolbar}
+        <TicketsListSkeleton />
+      </>
+    )
   }
 
   if (tickets.isError) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle />
-        <AlertDescription>
-          {tickets.error instanceof ApiError ? tickets.error.message : 'Could not load tickets.'}
-        </AlertDescription>
-      </Alert>
+      <>
+        {toolbar}
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertDescription>
+            {tickets.error instanceof ApiError ? tickets.error.message : 'Could not load tickets.'}
+          </AlertDescription>
+        </Alert>
+      </>
     )
   }
 
   const { items, totalCount, pageSize } = tickets.data
   if (totalCount === 0) {
-    return <p className="text-muted-foreground">No tickets yet.</p>
+    return (
+      <>
+        {toolbar}
+        <p className="text-muted-foreground">
+          {isFiltered ? 'No tickets match these filters.' : 'No tickets yet.'}
+        </p>
+      </>
+    )
   }
 
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))
@@ -189,6 +323,7 @@ export function TicketsList() {
 
   return (
     <>
+      {toolbar}
       <Table aria-busy={tickets.isPlaceholderData || undefined}>
         <TableCaption className="sr-only">Tickets</TableCaption>
         <TableHeader>

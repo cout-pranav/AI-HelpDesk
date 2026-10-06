@@ -28,9 +28,11 @@ public static class TicketEndpoints
         // Agents and admins both work tickets, so any signed-in user may read them.
         var group = app.MapGroup("/api/tickets").RequireAuthorization();
 
-        // Sorted by sortBy/sortDir (default newest first); Id breaks ties so paging is stable.
+        // Optionally filtered by status/category and a search term, sorted by sortBy/sortDir
+        // (default newest first); Id breaks ties so paging is stable.
         group.MapGet("/", async (
-            int? page, int? pageSize, string? sortBy, string? sortDir, TicketManagementDbContext db) =>
+            int? page, int? pageSize, string? sortBy, string? sortDir, string? status, string? category,
+            string? search, TicketManagementDbContext db) =>
         {
             var pageNumber = page ?? 1;
             var size = pageSize ?? DefaultPageSize;
@@ -46,11 +48,44 @@ public static class TicketEndpoints
             var descending = direction.Equals("desc", StringComparison.OrdinalIgnoreCase);
             if (!descending && !direction.Equals("asc", StringComparison.OrdinalIgnoreCase))
                 errors["sortDir"] = ["Sort direction must be asc or desc."];
+            // Matched case-insensitively, then compared in SQL using the stored spelling.
+            var statusFilter = status is null ? null : TicketStatuses.All.FirstOrDefault(
+                s => s.Equals(status, StringComparison.OrdinalIgnoreCase));
+            if (status is not null && statusFilter is null)
+                errors["status"] = [$"Status must be one of: {string.Join(", ", TicketStatuses.All)}."];
+            var uncategorized = category?.Equals(Uncategorized, StringComparison.OrdinalIgnoreCase) == true;
+            var categoryFilter = category is null || uncategorized ? null : TicketCategories.All.FirstOrDefault(
+                c => c.Equals(category, StringComparison.OrdinalIgnoreCase));
+            if (category is not null && !uncategorized && categoryFilter is null)
+                errors["category"] =
+                    [$"Category must be one of: {string.Join(", ", TicketCategories.All)}, {Uncategorized}."];
+            var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+            if (term?.Length > MaxSearchLength)
+                errors["search"] = [$"Search must be at most {MaxSearchLength} characters."];
             if (errors.Count > 0)
                 return Results.ValidationProblem(errors);
 
-            var totalCount = await db.Tickets.CountAsync();
-            var tickets = await ApplySort(db.Tickets.AsNoTracking(), sortKey, descending)
+            var query = db.Tickets.AsNoTracking();
+            if (statusFilter is not null)
+                query = query.Where(t => t.Status == statusFilter);
+            if (uncategorized)
+                query = query.Where(t => t.Category == null);
+            else if (categoryFilter is not null)
+                query = query.Where(t => t.Category == categoryFilter);
+            if (term is not null)
+            {
+                // Substring match on what the list shows; the DB collation makes it case-insensitive.
+                // "42" or "#42" also finds ticket 42.
+                var ticketId = int.TryParse(term.TrimStart('#'), out var id) ? id : (int?)null;
+                query = query.Where(t =>
+                    t.Subject.Contains(term) ||
+                    (t.SubmitterName != null && t.SubmitterName.Contains(term)) ||
+                    t.SubmitterEmail.Contains(term) ||
+                    t.Id == ticketId);
+            }
+
+            var totalCount = await query.CountAsync();
+            var tickets = await ApplySort(query, sortKey, descending)
                 .Skip((pageNumber - 1) * size)
                 .Take(size)
                 .Select(t => new TicketListItemDto(
@@ -71,6 +106,11 @@ public static class TicketEndpoints
 
         return app;
     }
+
+    private const int MaxSearchLength = 200;
+
+    // The category filter value for tickets that haven't been classified yet.
+    private const string Uncategorized = "uncategorized";
 
     // Values match the frontend's column ids.
     private const string DefaultSortBy = "createdAt";

@@ -6,4 +6,6 @@ public static class TicketStatuses
     public const string Open = "Open";
     public const string Resolved = "Resolved";
     public const string Closed = "Closed";
+
+    public static readonly string[] All = [Open, Resolved, Closed];
 }
