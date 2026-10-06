@@ -5,10 +5,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
+import type { AssigneeOption } from './useAssigneeOptions'
 import {
   SEARCH_DEBOUNCE_MS,
   TICKETS_PAGE_SIZE,
   TicketsList,
+  UNASSIGNED,
   UNCATEGORIZED,
   type TicketListItem,
   type TicketListResponse,
@@ -21,6 +23,16 @@ vi.mock('@/lib/api', async (importOriginal) => {
 })
 
 const getMock = vi.mocked(api.get)
+
+// The assignee filter's options come from their own hook (its request is tested with
+// TicketAssignee), so api.get here only sees ticket requests.
+const assigneeOptions: AssigneeOption[] = [
+  { id: 3, displayName: 'Alex Agent', isActive: true },
+  { id: 4, displayName: 'Old Agent', isActive: false },
+]
+vi.mock('./useAssigneeOptions', () => ({
+  useAssigneeOptions: () => ({ data: assigneeOptions }),
+}))
 
 // Subjects are router links, so the list needs a router around it.
 function renderList() {
@@ -51,6 +63,7 @@ const tickets: TicketListItem[] = [
     source: 'email',
     submitterEmail: 'jane@example.com',
     submitterName: 'Jane Student',
+    assignee: { id: 3, displayName: 'Alex Agent', email: 'alex@example.com' },
     createdAt: '2026-10-05T14:30:00Z',
     updatedAt: '2026-10-05T14:30:00Z',
   },
@@ -62,6 +75,7 @@ const tickets: TicketListItem[] = [
     source: 'email',
     submitterEmail: 'bob@example.com',
     submitterName: null,
+    assignee: null,
     createdAt: '2026-10-01T09:00:00Z',
     updatedAt: '2026-10-02T09:00:00Z',
   },
@@ -96,6 +110,7 @@ describe('TicketsList', () => {
       'Submitter',
       'Status',
       'Category',
+      'Assignee',
       'Received',
     ])
     // Header row + 5 placeholder rows.
@@ -117,15 +132,18 @@ describe('TicketsList', () => {
       'Jane Studentjane@example.com',
       'Open',
       'Refund request',
+      'Alex Agent',
       new Date(tickets[0].createdAt).toLocaleString(),
     ])
-    // No submitter name falls back to the email; no category shows "Uncategorized".
+    // No submitter name falls back to the email; no category shows "Uncategorized"; no assignee
+    // shows "Unassigned".
     expect(within(bodyRows[1]).getAllByRole('cell').map((td) => td.textContent)).toEqual([
       '#1',
       'Cannot log in',
       'bob@example.com',
       'Resolved',
       'Uncategorized',
+      'Unassigned',
       new Date(tickets[1].createdAt).toLocaleString(),
     ])
   })
@@ -182,6 +200,7 @@ describe('TicketsList', () => {
       'Submitter',
       'Status',
       'Category',
+      'Assignee',
       'Received',
     ])
     expect(within(table).getByRole('columnheader', { name: 'Received' })).toHaveAttribute(
@@ -285,7 +304,54 @@ describe('TicketsList', () => {
       'Refund request',
       'Uncategorized',
     ])
+    const assignee = screen.getByRole('combobox', { name: 'Assignee' })
+    expect(assignee).toHaveValue('')
+    // Deactivated users stay listed since they may still have tickets.
+    expect(within(assignee).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'All assignees',
+      'Unassigned',
+      'Alex Agent',
+      'Old Agent (inactive)',
+    ])
     expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+  })
+
+  it('asks the API for the chosen assignee, by user id or unassigned', async () => {
+    const user = userEvent.setup()
+    respondWith({ items: tickets })
+
+    renderList()
+
+    await screen.findByRole('table', { name: 'Tickets' })
+    const assignee = screen.getByRole('combobox', { name: 'Assignee' })
+    await user.selectOptions(assignee, 'Alex Agent')
+
+    await vi.waitFor(() =>
+      expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+        params: {
+          page: 1,
+          pageSize: TICKETS_PAGE_SIZE,
+          sortBy: 'createdAt',
+          sortDir: 'desc',
+          assignee: '3',
+        },
+      }),
+    )
+    expect(screen.getByRole('button', { name: 'Clear filters' })).toBeInTheDocument()
+
+    await user.selectOptions(assignee, 'Unassigned')
+
+    await vi.waitFor(() =>
+      expect(getMock).toHaveBeenLastCalledWith('/api/tickets', {
+        params: {
+          page: 1,
+          pageSize: TICKETS_PAGE_SIZE,
+          sortBy: 'createdAt',
+          sortDir: 'desc',
+          assignee: UNASSIGNED,
+        },
+      }),
+    )
   })
 
   it('asks the API for the chosen status and category', async () => {

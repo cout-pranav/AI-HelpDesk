@@ -27,6 +27,7 @@ const ticket: TicketDetailData = {
   submitterName: 'Jane Student',
   createdAt: '2026-10-05T14:30:00Z',
   updatedAt: '2026-10-05T15:00:00Z',
+  assignee: { id: 3, displayName: 'Alex Agent', email: 'alex@example.com' },
   messages: [
     {
       id: 7,
@@ -47,7 +48,7 @@ describe('TicketDetail', () => {
   it('fetches the ticket by id', async () => {
     respondWith(ticket)
 
-    renderWithQueryClient(<TicketDetail ticketId={42} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
 
     await screen.findByRole('heading', {
       name: 'Refund for duplicate charge',
@@ -59,7 +60,7 @@ describe('TicketDetail', () => {
   it('shows a busy skeleton while loading', () => {
     getMock.mockReturnValue(new Promise(() => {}))
 
-    renderWithQueryClient(<TicketDetail ticketId={42} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
 
     expect(screen.getByLabelText('Loading ticket')).toHaveAttribute('aria-busy', 'true')
   })
@@ -67,7 +68,7 @@ describe('TicketDetail', () => {
   it('shows the ticket fields', async () => {
     respondWith(ticket)
 
-    renderWithQueryClient(<TicketDetail ticketId={42} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
 
     await screen.findByRole('heading', {
       name: 'Refund for duplicate charge',
@@ -77,6 +78,9 @@ describe('TicketDetail', () => {
     const field = (term: string) => screen.getByText(term, { selector: 'dt' }).nextElementSibling
     expect(field('Status')).toHaveTextContent('Open')
     expect(field('Category')).toHaveTextContent('Refund request')
+    // Without canAssign the assignee is plain text, not a picker.
+    expect(field('Assignee')).toHaveTextContent('Alex Agent')
+    expect(screen.queryByRole('combobox', { name: 'Assignee' })).not.toBeInTheDocument()
     expect(field('Submitter')).toHaveTextContent('Jane Student <jane@example.com>')
     expect(field('Source')).toHaveTextContent('email')
     expect(field('Received')).toHaveTextContent(new Date(ticket.createdAt).toLocaleString())
@@ -88,10 +92,11 @@ describe('TicketDetail', () => {
       ...ticket,
       submitterName: null,
       category: null,
+      assignee: null,
       messages: [{ ...ticket.messages[0], senderName: null, attachmentNames: [] }],
     })
 
-    renderWithQueryClient(<TicketDetail ticketId={42} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
 
     await screen.findByRole('heading', {
       name: 'Refund for duplicate charge',
@@ -100,6 +105,7 @@ describe('TicketDetail', () => {
     const field = (term: string) => screen.getByText(term, { selector: 'dt' }).nextElementSibling
     expect(field('Submitter')).toHaveTextContent(/^jane@example\.com$/)
     expect(field('Category')).toHaveTextContent('Uncategorized')
+    expect(field('Assignee')).toHaveTextContent('Unassigned')
     const [message] = within(screen.getByRole('list')).getAllByRole('listitem')
     expect(within(message).getByText('jane@example.com')).toBeInTheDocument()
     expect(within(message).queryByRole('list', { name: 'Attachments' })).not.toBeInTheDocument()
@@ -121,7 +127,7 @@ describe('TicketDetail', () => {
       ],
     })
 
-    renderWithQueryClient(<TicketDetail ticketId={42} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
 
     const thread = await screen.findByRole('region', { name: 'Messages' })
     const messages = within(thread)
@@ -145,10 +151,20 @@ describe('TicketDetail', () => {
     expect(within(messages[1]).getByText('Any update?')).toBeInTheDocument()
   })
 
+  it('shows an assignee picker when canAssign is set', async () => {
+    respondWith(ticket)
+
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign />)
+
+    expect(await screen.findByRole('combobox', { name: 'Assignee' })).toHaveDisplayValue(
+      'Alex Agent',
+    )
+  })
+
   it('shows a message when the ticket has no messages', async () => {
     respondWith({ ...ticket, messages: [] })
 
-    renderWithQueryClient(<TicketDetail ticketId={42} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
 
     expect(await screen.findByText('No messages.')).toBeInTheDocument()
   })
@@ -156,7 +172,7 @@ describe('TicketDetail', () => {
   it('shows the API error message, e.g. when the ticket does not exist', async () => {
     getMock.mockRejectedValue(new ApiError(404, 'Ticket not found.'))
 
-    renderWithQueryClient(<TicketDetail ticketId={999} />)
+    renderWithQueryClient(<TicketDetail ticketId={999} canAssign={false} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Ticket not found.')
   })
@@ -164,7 +180,7 @@ describe('TicketDetail', () => {
   it('shows a generic error when the request fails without an API error', async () => {
     getMock.mockRejectedValue(new Error('Network Error'))
 
-    renderWithQueryClient(<TicketDetail ticketId={42} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the ticket.')
   })
