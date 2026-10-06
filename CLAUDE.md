@@ -36,15 +36,22 @@ npm test          # component tests (Vitest + React Testing Library, jsdom), run
 npm run test:watch
 ```
 
+### Testing strategy
+Component tests are the default. Every new or changed frontend component gets Vitest tests next to it, covering what it renders, loading/empty/error states, user interactions, and the API calls it makes (path and params). Write E2E tests only when a component test can't prove the behaviour, i.e. it depends on the real backend or the full stack:
+- auth, session and routing flows (sign-in, redirects, role-gated pages)
+- backend contract and rules the UI relies on (status codes, validation errors, role checks, sort order, persistence across a reload)
+- a critical end-to-end user journey that spans several pages
+
+Don't duplicate in E2E what component tests already cover (rendering details, formatting, each UI state). When you finish a feature, write its component tests; only offer E2E tests if one of the cases above applies, and say which.
+
 ### Component tests (`frontend`, Vitest)
-Vitest config is the `test` block in `vite.config.ts` (jsdom, files `src/**/*.test.{ts,tsx}`, setup in `src/test/setup.ts` which loads the jest-dom matchers). Tests sit next to the component (e.g. `src/users/UsersList.test.tsx`). Render anything that uses TanStack Query with `renderWithQueryClient` from `@/test/renderWithQueryClient` (a fresh client per test, no retries), and stub HTTP by `vi.mock('@/lib/api')`, keeping the real `ApiError`.
+Vitest config is the `test` block in `vite.config.ts` (jsdom, files `src/**/*.test.{ts,tsx}`, setup in `src/test/setup.ts` which loads the jest-dom matchers). Tests sit next to the component (e.g. `src/users/UsersList.test.tsx`). Render anything that uses TanStack Query with `renderWithQueryClient` from `@/test/renderWithQueryClient` (a fresh client per test, no retries), and stub HTTP by `vi.mock('@/lib/api')`, keeping the real `ApiError`. Query by role and accessible name (`getByRole('table', { name: 'Tickets' })`), and drive interactions with `@testing-library/user-event`. `src/users/UsersList.test.tsx` and `src/tickets/TicketsList.test.tsx` are the references.
 
 ### E2E tests (`frontend`, Playwright)
 `npm run test:e2e` runs the suite. How the E2E stack works and how to write tests lives in the `e2e-test-writer` sub-agent ([.claude/agents/e2e-test-writer.md](.claude/agents/e2e-test-writer.md)).
 
-Use the `e2e-test-writer` sub-agent (Agent tool, `subagent_type: "e2e-test-writer"`) whenever tests need to be added, extended, or fixed, rather than writing specs yourself:
-- After finishing a user-facing feature or flow, offer to have it cover the feature with E2E tests (or delegate directly if the user asked for tests).
-- In the prompt, name the feature, the pages/routes and backend endpoints involved, and the scenarios to cover (happy path plus key unhappy paths such as validation errors and role checks). It starts with no context from this conversation.
+When E2E tests are warranted (see Testing strategy), use the `e2e-test-writer` sub-agent (Agent tool, `subagent_type: "e2e-test-writer"`) rather than writing specs yourself. Delegate directly if the user asked for E2E tests:
+- In the prompt, name the feature, the pages/routes and backend endpoints involved, and only the scenarios that need the full stack. It starts with no context from this conversation.
 - It only edits files under `frontend/e2e/`. When it reports an app bug or a missing accessibility hook (e.g. an input without a label), fix the app code yourself, then re-run it or the affected spec.
 - Relay its results to the user: files changed, scenarios covered, the actual pass/fail summary, and any app issues or gaps it reported.
 
