@@ -4,6 +4,7 @@ import { RequireRole } from './auth/RequireRole'
 import { AppLayout } from './components/AppLayout'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
+import { TicketsPage } from './pages/TicketsPage'
 import { UsersPage } from './pages/UsersPage'
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/tickets" element={<TicketsPage />} />
           <Route element={<RequireRole role="Admin" />}>
             <Route path="/users" element={<UsersPage />} />
           </Route>

@@ -12,15 +12,10 @@ export function AppLayout() {
             Ticket Management
           </Link>
           
-          {user?.role === 'Admin' && (
-            <nav className="flex items-center gap-4 text-sm">
-              <NavLink
-                to="/users"
-              >
-                Users
-              </NavLink>
-            </nav>
-          )}
+          <nav className="flex items-center gap-4 text-sm">
+            <NavLink to="/tickets">Tickets</NavLink>
+            {user?.role === 'Admin' && <NavLink to="/users">Users</NavLink>}
+          </nav>
         </div>
         {user && (
           <div className="flex items-center gap-3">
