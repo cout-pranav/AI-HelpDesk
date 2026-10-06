@@ -89,6 +89,9 @@ export const SEARCH_DEBOUNCE_MS = 300
 // The API sorts, filters and searches, so no sorted or filtered row models are registered; the
 // table only holds the sort, filter and search state.
 const features = tableFeatures({ rowSortingFeature, columnFilteringFeature, globalFilteringFeature })
+// Filtered columns need a filterFn, or TanStack warns that its 'auto' pick isn't registered.
+// It never runs, since the API does the filtering.
+const filteredOnServer = () => true
 const helper = createColumnHelper<typeof features, TicketListItem>()
 const columns = helper.columns([
   helper.accessor('id', {
@@ -117,10 +120,12 @@ const columns = helper.columns([
   }),
   helper.accessor('status', {
     header: columnLabels.status,
+    filterFn: filteredOnServer,
     cell: (info) => <Badge variant={statusVariants[info.getValue()]}>{info.getValue()}</Badge>,
   }),
   helper.accessor('category', {
     header: columnLabels.category,
+    filterFn: filteredOnServer,
     cell: (info) => {
       const category = info.getValue()
       return category ? (
