@@ -18,6 +18,26 @@ public record TicketListItemDto(
 
 public record TicketListResponse(List<TicketListItemDto> Items, int Page, int PageSize, int TotalCount);
 
+public record TicketMessageDto(
+    int Id,
+    string SenderEmail,
+    string? SenderName,
+    string Body,
+    List<string> AttachmentNames,
+    DateTime CreatedAt);
+
+public record TicketDetailDto(
+    int Id,
+    string Subject,
+    string Status,
+    string? Category,
+    string Source,
+    string SubmitterEmail,
+    string? SubmitterName,
+    DateTime CreatedAt,
+    DateTime UpdatedAt,
+    List<TicketMessageDto> Messages);
+
 public static class TicketEndpoints
 {
     private const int DefaultPageSize = 25;
@@ -102,6 +122,36 @@ public static class TicketEndpoints
                 .ToListAsync();
 
             return Results.Ok(new TicketListResponse(tickets, pageNumber, size, totalCount));
+        });
+
+        // One ticket with its message thread, oldest message first.
+        group.MapGet("/{id:int}", async (int id, TicketManagementDbContext db) =>
+        {
+            var ticket = await db.Tickets
+                .AsNoTracking()
+                .Include(t => t.Messages.OrderBy(m => m.CreatedAt).ThenBy(m => m.Id))
+                .FirstOrDefaultAsync(t => t.Id == id);
+            if (ticket is null)
+                return Results.Problem("Ticket not found.", statusCode: StatusCodes.Status404NotFound);
+
+            return Results.Ok(new TicketDetailDto(
+                ticket.Id,
+                ticket.Subject,
+                ticket.Status,
+                ticket.Category,
+                ticket.Source,
+                ticket.SubmitterEmail,
+                ticket.SubmitterName,
+                // Stored as UTC but read back as Unspecified; see the list projection.
+                DateTime.SpecifyKind(ticket.CreatedAt, DateTimeKind.Utc),
+                DateTime.SpecifyKind(ticket.UpdatedAt, DateTimeKind.Utc),
+                ticket.Messages.Select(m => new TicketMessageDto(
+                    m.Id,
+                    m.SenderEmail,
+                    m.SenderName,
+                    m.Body,
+                    m.AttachmentNames,
+                    DateTime.SpecifyKind(m.CreatedAt, DateTimeKind.Utc))).ToList()));
         });
 
         return app;

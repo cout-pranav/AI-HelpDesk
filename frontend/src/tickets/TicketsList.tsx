@@ -13,6 +13,7 @@ import {
 } from '@tanstack/react-table'
 import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -30,9 +31,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { api, ApiError } from '@/lib/api'
+import { categoryLabels, statusVariants, type TicketCategory, type TicketStatus } from './ticketDisplay'
 
-export type TicketStatus = 'Open' | 'Resolved' | 'Closed'
-export type TicketCategory = 'GeneralQuestion' | 'TechnicalQuestion' | 'RefundRequest'
+export type { TicketCategory, TicketStatus } from './ticketDisplay'
+
 
 export type TicketListItem = {
   id: number
@@ -54,18 +56,6 @@ export type TicketListResponse = {
 }
 
 export const TICKETS_PAGE_SIZE = 25
-
-const categoryLabels: Record<TicketCategory, string> = {
-  GeneralQuestion: 'General question',
-  TechnicalQuestion: 'Technical question',
-  RefundRequest: 'Refund request',
-}
-
-const statusVariants: Record<TicketStatus, 'default' | 'secondary' | 'outline'> = {
-  Open: 'default',
-  Resolved: 'secondary',
-  Closed: 'outline',
-}
 
 const ticketStatuses = Object.keys(statusVariants) as TicketStatus[]
 const ticketCategories = Object.keys(categoryLabels) as TicketCategory[]
@@ -102,7 +92,12 @@ const columns = helper.columns([
     header: columnLabels.subject,
     cell: (info) => (
       <div className="max-w-md truncate font-medium" title={info.getValue()}>
-        {info.getValue()}
+        <Link
+          to={`/tickets/${info.row.original.id}`}
+          className="underline-offset-4 hover:underline focus-visible:underline"
+        >
+          {info.getValue()}
+        </Link>
       </div>
     ),
   }),
