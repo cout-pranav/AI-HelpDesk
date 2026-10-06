@@ -76,8 +76,9 @@ describe('TicketDetail', () => {
     })
     expect(screen.getByText('#42')).toBeInTheDocument()
     const field = (term: string) => screen.getByText(term, { selector: 'dt' }).nextElementSibling
-    expect(field('Status')).toHaveTextContent('Open')
-    expect(field('Category')).toHaveTextContent('Refund request')
+    // Status and category are editable by everyone.
+    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveDisplayValue('Open')
+    expect(screen.getByRole('combobox', { name: 'Category' })).toHaveDisplayValue('Refund request')
     // Without canAssign the assignee is plain text, not a picker.
     expect(field('Assignee')).toHaveTextContent('Alex Agent')
     expect(screen.queryByRole('combobox', { name: 'Assignee' })).not.toBeInTheDocument()
@@ -104,7 +105,7 @@ describe('TicketDetail', () => {
     })
     const field = (term: string) => screen.getByText(term, { selector: 'dt' }).nextElementSibling
     expect(field('Submitter')).toHaveTextContent(/^jane@example\.com$/)
-    expect(field('Category')).toHaveTextContent('Uncategorized')
+    expect(screen.getByRole('combobox', { name: 'Category' })).toHaveDisplayValue('Uncategorized')
     expect(field('Assignee')).toHaveTextContent('Unassigned')
     const [message] = within(screen.getByRole('list')).getAllByRole('listitem')
     expect(within(message).getByText('jane@example.com')).toBeInTheDocument()
