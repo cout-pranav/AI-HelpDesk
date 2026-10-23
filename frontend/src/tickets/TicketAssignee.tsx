@@ -1,6 +1,6 @@
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import { ApiError } from '@/lib/api'
-import type { TicketAssigneeData } from './ticketDisplay'
+import { errorMessage } from '@/lib/api'
+import type { TicketDetailData } from './TicketDetail'
 import { useAssigneeOptions } from './useAssigneeOptions'
 import { useUpdateTicket } from './useUpdateTicket'
 
@@ -8,45 +8,34 @@ const UNASSIGNED = ''
 
 // Admins pick the assignee from active users; everyone else just sees who it is.
 export function TicketAssignee({
-  ticketId,
-  assignee,
+  ticket,
   canAssign,
 }: {
-  ticketId: number
-  assignee: TicketAssigneeData | null
+  ticket: TicketDetailData
   canAssign: boolean
 }) {
   if (!canAssign) {
-    return assignee ? (
-      <>{assignee.displayName}</>
+    return ticket.assignee ? (
+      <>{ticket.assignee.displayName}</>
     ) : (
       <span className="text-muted-foreground">Unassigned</span>
     )
   }
-  return <AssigneeSelect ticketId={ticketId} assignee={assignee} />
+  return <AssigneeSelect ticket={ticket} />
 }
 
-function AssigneeSelect({
-  ticketId,
-  assignee,
-}: {
-  ticketId: number
-  assignee: TicketAssigneeData | null
-}) {
+function AssigneeSelect({ ticket }: { ticket: TicketDetailData }) {
+  const { assignee } = ticket
   const users = useAssigneeOptions()
-  const assign = useUpdateTicket(ticketId, 'assignee')
+  const assign = useUpdateTicket(ticket.id, 'assignee')
 
   // The current assignee always has an option (even before users load, or if they were since
   // deactivated); the rest are the active users.
   const others = (users.data ?? []).filter((u) => u.isActive && u.id !== assignee?.id)
 
   const error = assign.error ?? users.error
-  const errorMessage = error
-    ? error instanceof ApiError
-      ? error.message
-      : assign.error
-        ? 'Could not assign the ticket.'
-        : 'Could not load users.'
+  const errorText = error
+    ? errorMessage(error, assign.error ? 'Could not assign the ticket.' : 'Could not load users.')
     : null
 
   return (
@@ -56,7 +45,7 @@ function AssigneeSelect({
         className="w-full"
         aria-label="Assignee"
         aria-busy={assign.isPending || users.isPending || undefined}
-        aria-invalid={errorMessage ? true : undefined}
+        aria-invalid={errorText ? true : undefined}
         value={assignee ? String(assignee.id) : UNASSIGNED}
         disabled={assign.isPending || users.isPending}
         onChange={(e) =>
@@ -73,9 +62,9 @@ function AssigneeSelect({
           </NativeSelectOption>
         ))}
       </NativeSelect>
-      {errorMessage && (
+      {errorText && (
         <p role="alert" className="text-xs text-destructive">
-          {errorMessage}
+          {errorText}
         </p>
       )}
     </div>

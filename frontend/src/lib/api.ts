@@ -22,6 +22,11 @@ export class ApiError extends Error {
   }
 }
 
+// The API's own message for an ApiError; anything else (e.g. a network error) gets the fallback.
+export function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? error.message : fallback
+}
+
 export const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL })
 
 api.interceptors.request.use((config) => {

@@ -1,8 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertCircle, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorAlert } from '@/components/ErrorAlert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
@@ -57,10 +57,7 @@ export function LoginForm() {
         <form onSubmit={onSubmit} noValidate>
           <FieldGroup>
             {error && (
-              <Alert variant="destructive">
-                <AlertCircle />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+              <ErrorAlert>{error}</ErrorAlert>
             )}
             <Field data-invalid={errors.email ? true : undefined}>
               <FieldLabel htmlFor="email">Email</FieldLabel>

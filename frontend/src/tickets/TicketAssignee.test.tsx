@@ -4,6 +4,7 @@ import type { AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
+import { makeTicket } from '@/test/ticketFixtures'
 import { TicketAssignee } from './TicketAssignee'
 import type { TicketDetailData } from './TicketDetail'
 import type { TicketAssigneeData } from './ticketDisplay'
@@ -27,7 +28,7 @@ const users: AssigneeOption[] = [
 const alex: TicketAssigneeData = { id: 3, displayName: 'Alex Agent', email: 'alex@example.com' }
 
 function renderPicker(assignee: TicketAssigneeData | null) {
-  return renderWithQueryClient(<TicketAssignee ticketId={42} assignee={assignee} canAssign />)
+  return renderWithQueryClient(<TicketAssignee ticket={makeTicket({ assignee })} canAssign />)
 }
 
 async function findLoadedPicker() {
@@ -44,7 +45,7 @@ describe('TicketAssignee', () => {
   })
 
   it('shows plain text without a picker when the user cannot assign', () => {
-    renderWithQueryClient(<TicketAssignee ticketId={42} assignee={alex} canAssign={false} />)
+    renderWithQueryClient(<TicketAssignee ticket={makeTicket({ assignee: alex })} canAssign={false} />)
 
     expect(screen.getByText('Alex Agent')).toBeInTheDocument()
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
@@ -52,7 +53,7 @@ describe('TicketAssignee', () => {
   })
 
   it('shows Unassigned as text when the user cannot assign and nobody is assigned', () => {
-    renderWithQueryClient(<TicketAssignee ticketId={42} assignee={null} canAssign={false} />)
+    renderWithQueryClient(<TicketAssignee ticket={makeTicket()} canAssign={false} />)
 
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
   })

@@ -4,6 +4,7 @@ import type { AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
+import { makeTicket } from '@/test/ticketFixtures'
 import type { TicketDetailData } from './TicketDetail'
 import { TicketStatusSelect } from './TicketStatusSelect'
 
@@ -21,7 +22,7 @@ describe('TicketStatusSelect', () => {
   })
 
   it('shows the current status and every status as an option', () => {
-    renderWithQueryClient(<TicketStatusSelect ticketId={42} status="Resolved" />)
+    renderWithQueryClient(<TicketStatusSelect ticket={makeTicket({ status: 'Resolved' })} />)
 
     const select = screen.getByRole('combobox', { name: 'Status' })
     expect(select).toHaveDisplayValue('Resolved')
@@ -35,7 +36,7 @@ describe('TicketStatusSelect', () => {
   it('saves the picked status, disabling the select while it saves', async () => {
     const user = userEvent.setup()
     putMock.mockReturnValue(new Promise(() => {}))
-    renderWithQueryClient(<TicketStatusSelect ticketId={42} status="Closed" />)
+    renderWithQueryClient(<TicketStatusSelect ticket={makeTicket({ status: 'Closed' })} />)
 
     const select = screen.getByRole('combobox', { name: 'Status' })
     // Reopening is allowed.
@@ -49,7 +50,7 @@ describe('TicketStatusSelect', () => {
   it('re-enables the select once saved', async () => {
     const user = userEvent.setup()
     putMock.mockResolvedValue({ data: {} } as AxiosResponse<TicketDetailData>)
-    renderWithQueryClient(<TicketStatusSelect ticketId={42} status="Open" />)
+    renderWithQueryClient(<TicketStatusSelect ticket={makeTicket({ status: 'Open' })} />)
 
     const select = screen.getByRole('combobox', { name: 'Status' })
     await user.selectOptions(select, 'Resolved')
@@ -61,7 +62,7 @@ describe('TicketStatusSelect', () => {
   it('shows the API error when saving fails', async () => {
     const user = userEvent.setup()
     putMock.mockRejectedValue(new ApiError(404, 'Ticket not found.'))
-    renderWithQueryClient(<TicketStatusSelect ticketId={42} status="Open" />)
+    renderWithQueryClient(<TicketStatusSelect ticket={makeTicket({ status: 'Open' })} />)
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'Resolved')
 
@@ -72,7 +73,7 @@ describe('TicketStatusSelect', () => {
   it('shows a generic error when the request fails without an API error', async () => {
     const user = userEvent.setup()
     putMock.mockRejectedValue(new Error('Network Error'))
-    renderWithQueryClient(<TicketStatusSelect ticketId={42} status="Open" />)
+    renderWithQueryClient(<TicketStatusSelect ticket={makeTicket({ status: 'Open' })} />)
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'Resolved')
 

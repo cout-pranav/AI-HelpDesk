@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, Loader2, Trash2 } from 'lucide-react'
+import { Loader2, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorAlert } from '@/components/ErrorAlert'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +14,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import { api, ApiError } from '@/lib/api'
+import { api, errorMessage } from '@/lib/api'
 import type { UserListItem } from './UsersList'
 
 // Soft-deletes an agent after confirmation. Not rendered for admins, who can't be deleted.
@@ -39,9 +39,7 @@ export function DeleteUserDialog({ user }: { user: UserListItem }) {
   }
 
   const error = deleteUser.error
-    ? deleteUser.error instanceof ApiError
-      ? deleteUser.error.message
-      : 'Could not delete user. Please try again.'
+    ? errorMessage(deleteUser.error, 'Could not delete user. Please try again.')
     : null
 
   return (
@@ -65,12 +63,7 @@ export function DeleteUserDialog({ user }: { user: UserListItem }) {
             {user.displayName} ({user.email}) will lose access and be removed from the users list.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        {error && <ErrorAlert>{error}</ErrorAlert>}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction

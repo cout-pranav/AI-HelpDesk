@@ -1,22 +1,13 @@
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import { ApiError } from '@/lib/api'
-import { ticketStatuses, type TicketStatus } from './ticketDisplay'
+import { errorMessage } from '@/lib/api'
+import type { TicketDetailData } from './TicketDetail'
+import { ticketStatuses } from './ticketDisplay'
 import { useUpdateTicket } from './useUpdateTicket'
 
 // Saves as soon as a status is picked; any status can follow any other.
-export function TicketStatusSelect({
-  ticketId,
-  status,
-}: {
-  ticketId: number
-  status: TicketStatus
-}) {
-  const update = useUpdateTicket(ticketId, 'status')
-  const errorMessage = update.error
-    ? update.error instanceof ApiError
-      ? update.error.message
-      : 'Could not update the status.'
-    : null
+export function TicketStatusSelect({ ticket }: { ticket: TicketDetailData }) {
+  const update = useUpdateTicket(ticket.id, 'status')
+  const errorText = update.error ? errorMessage(update.error, 'Could not update the status.') : null
 
   return (
     <div className="grid gap-1">
@@ -25,8 +16,8 @@ export function TicketStatusSelect({
         className="w-full"
         aria-label="Status"
         aria-busy={update.isPending || undefined}
-        aria-invalid={errorMessage ? true : undefined}
-        value={status}
+        aria-invalid={errorText ? true : undefined}
+        value={ticket.status}
         disabled={update.isPending}
         onChange={(e) => update.mutate({ status: e.target.value })}
       >
@@ -36,9 +27,9 @@ export function TicketStatusSelect({
           </NativeSelectOption>
         ))}
       </NativeSelect>
-      {errorMessage && (
+      {errorText && (
         <p role="alert" className="text-xs text-destructive">
-          {errorMessage}
+          {errorText}
         </p>
       )}
     </div>

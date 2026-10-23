@@ -31,6 +31,7 @@ const ticket: TicketDetailData = {
   messages: [
     {
       id: 7,
+      direction: 'inbound',
       senderEmail: 'jane@example.com',
       senderName: 'Jane Student',
       body: 'I was charged twice.\nPlease refund one.',
@@ -94,7 +95,6 @@ describe('TicketDetail', () => {
       submitterName: null,
       category: null,
       assignee: null,
-      messages: [{ ...ticket.messages[0], senderName: null, attachmentNames: [] }],
     })
 
     renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
@@ -107,49 +107,17 @@ describe('TicketDetail', () => {
     expect(field('Submitter')).toHaveTextContent(/^jane@example\.com$/)
     expect(screen.getByRole('combobox', { name: 'Category' })).toHaveDisplayValue('Uncategorized')
     expect(field('Assignee')).toHaveTextContent('Unassigned')
-    const [message] = within(screen.getByRole('list')).getAllByRole('listitem')
-    expect(within(message).getByText('jane@example.com')).toBeInTheDocument()
-    expect(within(message).queryByRole('list', { name: 'Attachments' })).not.toBeInTheDocument()
   })
 
-  it('shows the message thread with bodies and attachment names', async () => {
-    respondWith({
-      ...ticket,
-      messages: [
-        ...ticket.messages,
-        {
-          id: 8,
-          senderEmail: 'jane@example.com',
-          senderName: 'Jane Student',
-          body: 'Any update?',
-          attachmentNames: [],
-          createdAt: '2026-10-06T09:00:00Z',
-        },
-      ],
-    })
+  // How each message renders is covered by TicketThread.test.tsx.
+  it('shows the fetched messages, followed by the reply form', async () => {
+    respondWith(ticket)
 
     renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
 
     const thread = await screen.findByRole('region', { name: 'Messages' })
-    const messages = within(thread)
-      .getAllByRole('listitem')
-      .filter((li) => li.parentElement?.tagName === 'OL')
-    expect(messages).toHaveLength(2)
-    // Line breaks in the plain-text body are kept as-is.
-    expect(
-      within(messages[0]).getByText(
-        (_, el) => el?.textContent === 'I was charged twice.\nPlease refund one.',
-      ),
-    ).toBeInTheDocument()
-    const attachments = within(messages[0]).getByRole('list', {
-      name: 'Attachments',
-    })
-    expect(
-      within(attachments)
-        .getAllByRole('listitem')
-        .map((li) => li.textContent),
-    ).toEqual(['receipt.pdf', 'statement.png'])
-    expect(within(messages[1]).getByText('Any update?')).toBeInTheDocument()
+    expect(within(thread).getByRole('listitem', { name: 'Message from Jane Student' })).toBeInTheDocument()
+    expect(screen.getByRole('form', { name: 'Reply to customer' })).toBeInTheDocument()
   })
 
   it('shows an assignee picker when canAssign is set', async () => {
@@ -160,14 +128,6 @@ describe('TicketDetail', () => {
     expect(await screen.findByRole('combobox', { name: 'Assignee' })).toHaveDisplayValue(
       'Alex Agent',
     )
-  })
-
-  it('shows a message when the ticket has no messages', async () => {
-    respondWith({ ...ticket, messages: [] })
-
-    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
-
-    expect(await screen.findByText('No messages.')).toBeInTheDocument()
   })
 
   it('shows the API error message, e.g. when the ticket does not exist', async () => {

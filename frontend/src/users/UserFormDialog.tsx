@@ -1,10 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query'
-import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useState, type ReactElement, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorAlert } from '@/components/ErrorAlert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { ApiError } from '@/lib/api'
+import { ApiError, errorMessage } from '@/lib/api'
 import type { UserListItem } from './UsersList'
 
 export type UserFormMode = 'create' | 'edit'
@@ -147,9 +147,7 @@ export function UserFormDialog({
   // 409 is shown on the email field instead.
   const error =
     saveUser.error && !(saveUser.error instanceof ApiError && saveUser.error.status === 409)
-      ? saveUser.error instanceof ApiError
-        ? saveUser.error.message
-        : 'Could not save user. Please try again.'
+      ? errorMessage(saveUser.error, 'Could not save user. Please try again.')
       : null
 
   return (
@@ -163,10 +161,7 @@ export function UserFormDialog({
         <form onSubmit={onSubmit} noValidate>
           <FieldGroup>
             {error && (
-              <Alert variant="destructive">
-                <AlertCircle />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+              <ErrorAlert>{error}</ErrorAlert>
             )}
             <Field data-invalid={errors.displayName ? true : undefined}>
               <FieldLabel htmlFor={`${idPrefix}-name`}>Name</FieldLabel>

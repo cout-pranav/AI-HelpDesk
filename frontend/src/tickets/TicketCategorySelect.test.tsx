@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
+import { makeTicket } from '@/test/ticketFixtures'
 import { TicketCategorySelect } from './TicketCategorySelect'
 
 // Keep the real ApiError (the component checks instanceof) and stub only the HTTP call.
@@ -19,7 +20,7 @@ describe('TicketCategorySelect', () => {
   })
 
   it('shows the current category, with Uncategorized first among the options', () => {
-    renderWithQueryClient(<TicketCategorySelect ticketId={42} category="TechnicalQuestion" />)
+    renderWithQueryClient(<TicketCategorySelect ticket={makeTicket({ category: 'TechnicalQuestion' })} />)
 
     const select = screen.getByRole('combobox', { name: 'Category' })
     expect(select).toHaveDisplayValue('Technical question')
@@ -32,7 +33,7 @@ describe('TicketCategorySelect', () => {
   })
 
   it('shows Uncategorized when the ticket has no category', () => {
-    renderWithQueryClient(<TicketCategorySelect ticketId={42} category={null} />)
+    renderWithQueryClient(<TicketCategorySelect ticket={makeTicket()} />)
 
     expect(screen.getByRole('combobox', { name: 'Category' })).toHaveDisplayValue('Uncategorized')
   })
@@ -40,7 +41,7 @@ describe('TicketCategorySelect', () => {
   it('saves the picked category, disabling the select while it saves', async () => {
     const user = userEvent.setup()
     putMock.mockReturnValue(new Promise(() => {}))
-    renderWithQueryClient(<TicketCategorySelect ticketId={42} category={null} />)
+    renderWithQueryClient(<TicketCategorySelect ticket={makeTicket()} />)
 
     const select = screen.getByRole('combobox', { name: 'Category' })
     await user.selectOptions(select, 'Refund request')
@@ -55,7 +56,7 @@ describe('TicketCategorySelect', () => {
   it('clears the category with null when Uncategorized is picked', async () => {
     const user = userEvent.setup()
     putMock.mockReturnValue(new Promise(() => {}))
-    renderWithQueryClient(<TicketCategorySelect ticketId={42} category="RefundRequest" />)
+    renderWithQueryClient(<TicketCategorySelect ticket={makeTicket({ category: 'RefundRequest' })} />)
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Category' }), 'Uncategorized')
 
@@ -65,7 +66,7 @@ describe('TicketCategorySelect', () => {
   it('shows the API error when saving fails', async () => {
     const user = userEvent.setup()
     putMock.mockRejectedValue(new ApiError(404, 'Ticket not found.'))
-    renderWithQueryClient(<TicketCategorySelect ticketId={42} category={null} />)
+    renderWithQueryClient(<TicketCategorySelect ticket={makeTicket()} />)
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Category' }), 'General question')
 
@@ -75,7 +76,7 @@ describe('TicketCategorySelect', () => {
   it('shows a generic error when the request fails without an API error', async () => {
     const user = userEvent.setup()
     putMock.mockRejectedValue(new Error('Network Error'))
-    renderWithQueryClient(<TicketCategorySelect ticketId={42} category={null} />)
+    renderWithQueryClient(<TicketCategorySelect ticket={makeTicket()} />)
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Category' }), 'General question')
 

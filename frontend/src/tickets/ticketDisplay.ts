@@ -22,3 +22,8 @@ export const statusVariants: Record<TicketStatus, 'default' | 'secondary' | 'out
 
 export const ticketStatuses = Object.keys(statusVariants) as TicketStatus[]
 export const ticketCategories = Object.keys(categoryLabels) as TicketCategory[]
+
+// An API timestamp (UTC, ISO 8601) in the viewer's locale and time zone.
+export function formatDate(value: string) {
+  return new Date(value).toLocaleString()
+}

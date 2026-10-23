@@ -11,10 +11,10 @@ import {
   type OnChangeFn,
   type SortingState,
 } from '@tanstack/react-table'
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorAlert } from '@/components/ErrorAlert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { api, ApiError } from '@/lib/api'
+import { api, errorMessage } from '@/lib/api'
 import {
   categoryLabels,
   statusVariants,
@@ -337,12 +337,7 @@ export function TicketsList() {
     return (
       <>
         {toolbar}
-        <Alert variant="destructive">
-          <AlertCircle />
-          <AlertDescription>
-            {tickets.error instanceof ApiError ? tickets.error.message : 'Could not load tickets.'}
-          </AlertDescription>
-        </Alert>
+        <ErrorAlert>{errorMessage(tickets.error, 'Could not load tickets.')}</ErrorAlert>
       </>
     )
   }

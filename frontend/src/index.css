@@ -129,6 +129,18 @@
   html {
     @apply font-sans;
     }
+  /* Page and section headings; spacing stays on each heading. shadcn titles that render an h2
+     (Dialog/AlertDialog) set their own size and weight, which win over these base styles. */
+  h1 {
+    @apply text-2xl font-semibold;
+    }
+  h2 {
+    @apply text-lg font-semibold;
+    }
+  /* Labels in description lists (e.g. the ticket detail fields) are muted next to their values. */
+  dt {
+    @apply text-muted-foreground;
+    }
   /* Keep autofilled fields on the theme: the UA's autofill background can't be
      overridden, so delay its transition indefinitely instead. */
   input:autofill,

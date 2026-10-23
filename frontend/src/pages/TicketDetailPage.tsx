@@ -1,7 +1,7 @@
-import { AlertCircle, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '@/auth/authContext'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorAlert } from '@/components/ErrorAlert'
 import { TicketDetail } from '@/tickets/TicketDetail'
 
 export function TicketDetailPage() {
@@ -20,10 +20,7 @@ export function TicketDetailPage() {
         Back to tickets
       </Link>
       {ticketId === null ? (
-        <Alert variant="destructive">
-          <AlertCircle />
-          <AlertDescription>Ticket not found.</AlertDescription>
-        </Alert>
+        <ErrorAlert>Ticket not found.</ErrorAlert>
       ) : (
         <TicketDetail ticketId={ticketId} canAssign={user?.role === 'Admin'} />
       )}

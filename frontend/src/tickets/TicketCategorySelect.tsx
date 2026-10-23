@@ -1,23 +1,16 @@
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
-import { ApiError } from '@/lib/api'
-import { categoryLabels, ticketCategories, type TicketCategory } from './ticketDisplay'
+import { errorMessage } from '@/lib/api'
+import type { TicketDetailData } from './TicketDetail'
+import { categoryLabels, ticketCategories } from './ticketDisplay'
 import { useUpdateTicket } from './useUpdateTicket'
 
 const UNCATEGORIZED = ''
 
 // Saves as soon as a category is picked; Uncategorized clears it.
-export function TicketCategorySelect({
-  ticketId,
-  category,
-}: {
-  ticketId: number
-  category: TicketCategory | null
-}) {
-  const update = useUpdateTicket(ticketId, 'category')
-  const errorMessage = update.error
-    ? update.error instanceof ApiError
-      ? update.error.message
-      : 'Could not update the category.'
+export function TicketCategorySelect({ ticket }: { ticket: TicketDetailData }) {
+  const update = useUpdateTicket(ticket.id, 'category')
+  const errorText = update.error
+    ? errorMessage(update.error, 'Could not update the category.')
     : null
 
   return (
@@ -27,8 +20,8 @@ export function TicketCategorySelect({
         className="w-full"
         aria-label="Category"
         aria-busy={update.isPending || undefined}
-        aria-invalid={errorMessage ? true : undefined}
-        value={category ?? UNCATEGORIZED}
+        aria-invalid={errorText ? true : undefined}
+        value={ticket.category ?? UNCATEGORIZED}
         disabled={update.isPending}
         onChange={(e) =>
           update.mutate({ category: e.target.value === UNCATEGORIZED ? null : e.target.value })
@@ -41,9 +34,9 @@ export function TicketCategorySelect({
           </NativeSelectOption>
         ))}
       </NativeSelect>
-      {errorMessage && (
+      {errorText && (
         <p role="alert" className="text-xs text-destructive">
-          {errorMessage}
+          {errorText}
         </p>
       )}
     </div>

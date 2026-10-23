@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle } from 'lucide-react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorAlert } from '@/components/ErrorAlert'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -13,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { Role } from '@/auth/authContext'
-import { api, ApiError } from '@/lib/api'
+import { api, errorMessage } from '@/lib/api'
 import { DeleteUserDialog } from './DeleteUserDialog'
 import { EditUserDialog } from './EditUserDialog'
 
@@ -37,14 +36,7 @@ export function UsersList() {
   }
 
   if (users.isError) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle />
-        <AlertDescription>
-          {users.error instanceof ApiError ? users.error.message : 'Could not load users.'}
-        </AlertDescription>
-      </Alert>
-    )
+    return <ErrorAlert>{errorMessage(users.error, 'Could not load users.')}</ErrorAlert>
   }
 
   if (users.data.length === 0) {

@@ -1,17 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, Paperclip } from 'lucide-react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { ErrorAlert } from '@/components/ErrorAlert'
+import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { api, ApiError } from '@/lib/api'
+import { api, errorMessage } from '@/lib/api'
 import { TicketAssignee } from './TicketAssignee'
 import { TicketCategorySelect } from './TicketCategorySelect'
+import { TicketReplyForm } from './TicketReplyForm'
 import { TicketStatusSelect } from './TicketStatusSelect'
-import type { TicketAssigneeData, TicketCategory, TicketStatus } from './ticketDisplay'
+import { TicketThread } from './TicketThread'
+import {
+  formatDate,
+  type TicketAssigneeData,
+  type TicketCategory,
+  type TicketStatus,
+} from './ticketDisplay'
 
 export type TicketMessage = {
   id: number
+  // inbound: from the customer; outbound: an agent's reply.
+  direction: 'inbound' | 'outbound'
   senderEmail: string
   senderName: string | null
   body: string
@@ -33,10 +40,6 @@ export type TicketDetailData = {
   messages: TicketMessage[]
 }
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleString()
-}
-
 // Wide main column for the ticket and its thread; a fixed-width sidebar for the editable fields,
 // so every dropdown gets the same width. The columns stack on small screens.
 const columnsClass = 'grid gap-8 lg:grid-cols-[minmax(0,1fr)_14rem]'
@@ -53,14 +56,7 @@ export function TicketDetail({ ticketId, canAssign }: { ticketId: number; canAss
   }
 
   if (ticket.isError) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle />
-        <AlertDescription>
-          {ticket.error instanceof ApiError ? ticket.error.message : 'Could not load the ticket.'}
-        </AlertDescription>
-      </Alert>
-    )
+    return <ErrorAlert>{errorMessage(ticket.error, 'Could not load the ticket.')}</ErrorAlert>
   }
 
   const t = ticket.data
@@ -69,66 +65,34 @@ export function TicketDetail({ ticketId, canAssign }: { ticketId: number; canAss
       <div className="min-w-0">
         <header className="mb-6">
           <p className="text-sm text-muted-foreground">#{t.id}</p>
-          <h1 id="ticket-subject" className="mb-3 text-2xl font-semibold break-words">
+          <h1 id="ticket-subject" className="mb-3 break-words">
             {t.subject}
           </h1>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm sm:grid-cols-[auto_1fr_auto_1fr]">
-            <dt className="text-muted-foreground">Submitter</dt>
+            <dt>Submitter</dt>
             <dd className="min-w-0 break-words">
               {t.submitterName ? `${t.submitterName} <${t.submitterEmail}>` : t.submitterEmail}
             </dd>
-            <dt className="text-muted-foreground">Source</dt>
+            <dt>Source</dt>
             <dd className="capitalize">{t.source}</dd>
-            <dt className="text-muted-foreground">Received</dt>
+            <dt>Received</dt>
             <dd>
               <time dateTime={t.createdAt}>{formatDate(t.createdAt)}</time>
             </dd>
-            <dt className="text-muted-foreground">Updated</dt>
+            <dt>Updated</dt>
             <dd>
               <time dateTime={t.updatedAt}>{formatDate(t.updatedAt)}</time>
             </dd>
           </dl>
         </header>
 
-        <section aria-labelledby="ticket-messages">
-          <h2 id="ticket-messages" className="mb-3 text-lg font-semibold">
-            Messages
+        <TicketThread messages={t.messages} />
+
+        <section aria-labelledby="ticket-reply" className="mt-8">
+          <h2 id="ticket-reply" className="mb-3">
+            Reply
           </h2>
-          {t.messages.length === 0 ? (
-            <p className="text-muted-foreground">No messages.</p>
-          ) : (
-            <ol className="grid gap-4">
-              {t.messages.map((message) => (
-                <li key={message.id}>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>{message.senderName ?? message.senderEmail}</CardTitle>
-                      <CardDescription>
-                        {message.senderName && <>{message.senderEmail} · </>}
-                        <time dateTime={message.createdAt}>{formatDate(message.createdAt)}</time>
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Bodies are plain text, so keep the email's line breaks. */}
-                      <p className="text-sm break-words whitespace-pre-wrap">{message.body}</p>
-                      {message.attachmentNames.length > 0 && (
-                        <ul aria-label="Attachments" className="mt-4 flex flex-wrap gap-2">
-                          {message.attachmentNames.map((name, i) => (
-                            <li key={`${name}-${i}`}>
-                              <Badge variant="outline">
-                                <Paperclip />
-                                {name}
-                              </Badge>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </CardContent>
-                  </Card>
-                </li>
-              ))}
-            </ol>
-          )}
+          <TicketReplyForm ticket={t} />
         </section>
       </div>
 
@@ -138,21 +102,21 @@ export function TicketDetail({ ticketId, canAssign }: { ticketId: number; canAss
           <CardContent>
             <dl className="grid gap-4 text-sm">
               <div className="grid gap-1.5">
-                <dt className="text-muted-foreground">Status</dt>
+                <dt>Status</dt>
                 <dd>
-                  <TicketStatusSelect ticketId={t.id} status={t.status} />
+                  <TicketStatusSelect ticket={t} />
                 </dd>
               </div>
               <div className="grid gap-1.5">
-                <dt className="text-muted-foreground">Category</dt>
+                <dt>Category</dt>
                 <dd>
-                  <TicketCategorySelect ticketId={t.id} category={t.category} />
+                  <TicketCategorySelect ticket={t} />
                 </dd>
               </div>
               <div className="grid gap-1.5">
-                <dt className="text-muted-foreground">Assignee</dt>
+                <dt>Assignee</dt>
                 <dd>
-                  <TicketAssignee ticketId={t.id} assignee={t.assignee} canAssign={canAssign} />
+                  <TicketAssignee ticket={t} canAssign={canAssign} />
                 </dd>
               </div>
             </dl>
