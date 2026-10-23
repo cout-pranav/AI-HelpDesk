@@ -19,3 +19,14 @@ X-Inbound-Email-Secret: 3656g4TeXG40Uh3Ttx_ymoBg1LmC1vNbtx6BPnIBczQ
 }
 
 ###
+
+# Adds an agent reply to ticket 1. Paste a token from POST /api/auth/login.
+POST {{TicketManagement.Api_HostAddress}}/api/tickets/1/replies
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "body": "Thanks for reaching out. We have reset your password."
+}
+
+###

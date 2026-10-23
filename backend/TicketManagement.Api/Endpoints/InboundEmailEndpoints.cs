@@ -105,6 +105,7 @@ public static class InboundEmailEndpoints
             };
             ticket.Messages.Add(new TicketMessage
             {
+                Direction = MessageDirections.Inbound,
                 SenderEmail = senderEmail,
                 SenderName = senderName,
                 Body = body,

@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.JsonWebTokens;
 using TicketManagement.Api.Data;
 using TicketManagement.Api.Models;
 
@@ -21,6 +22,7 @@ public record TicketListResponse(List<TicketListItemDto> Items, int Page, int Pa
 
 public record TicketMessageDto(
     int Id,
+    string Direction,
     string SenderEmail,
     string? SenderName,
     string Body,
@@ -36,6 +38,8 @@ public record UpdateTicketStatusRequest(string? Status);
 
 // A null Category clears it (back to uncategorized).
 public record UpdateTicketCategoryRequest(string? Category);
+
+public record CreateTicketReplyRequest(string? Body);
 
 public record TicketDetailDto(
     int Id,
@@ -235,6 +239,48 @@ public static class TicketEndpoints
             return Results.Ok(await LoadDetail(db, id));
         });
 
+        // Adds an agent's reply to the thread. It is only stored for now; emailing it to the submitter
+        // comes with outbound email. Returns the updated ticket.
+        group.MapPost("/{id:int}/replies", async (
+            int id, CreateTicketReplyRequest request, HttpContext http, TicketManagementDbContext db) =>
+        {
+            var body = request.Body?.Trim();
+            if (string.IsNullOrEmpty(body) || body.Length > MaxReplyLength)
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["body"] = [string.IsNullOrEmpty(body)
+                        ? "Reply cannot be empty."
+                        : $"Reply must be at most {MaxReplyLength} characters."],
+                });
+
+            var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == id);
+            if (ticket is null)
+                return TicketNotFound();
+
+            var sub = http.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+            var author = int.TryParse(sub, out var userId)
+                ? await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId)
+                : null;
+            if (author is null)
+                return Results.Unauthorized();
+
+            var now = DateTime.UtcNow;
+            db.TicketMessages.Add(new TicketMessage
+            {
+                TicketId = ticket.Id,
+                Direction = MessageDirections.Outbound,
+                AuthorId = author.Id,
+                SenderEmail = author.Email,
+                SenderName = author.DisplayName,
+                Body = body,
+                CreatedAt = now,
+            });
+            ticket.UpdatedAt = now;
+            await db.SaveChangesAsync();
+
+            return Results.Created($"/api/tickets/{id}", await LoadDetail(db, id));
+        });
+
         return app;
     }
 
@@ -267,6 +313,7 @@ public static class TicketEndpoints
                 : null,
             ticket.Messages.Select(m => new TicketMessageDto(
                 m.Id,
+                m.Direction,
                 m.SenderEmail,
                 m.SenderName,
                 m.Body,
@@ -275,6 +322,8 @@ public static class TicketEndpoints
     }
 
     private const int MaxSearchLength = 200;
+
+    private const int MaxReplyLength = 10_000;
 
     // The category filter value for tickets that haven't been classified yet.
     private const string Uncategorized = "uncategorized";

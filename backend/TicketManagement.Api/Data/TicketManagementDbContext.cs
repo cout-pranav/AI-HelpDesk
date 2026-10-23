@@ -67,6 +67,12 @@ public class TicketManagementDbContext : DbContext
                 .WithMany(t => t.Messages)
                 .HasForeignKey(m => m.TicketId)
                 .OnDelete(DeleteBehavior.Cascade);
+            // Replies keep their sender snapshot when the author is deleted.
+            message.HasOne(m => m.Author)
+                .WithMany()
+                .HasForeignKey(m => m.AuthorId)
+                .OnDelete(DeleteBehavior.SetNull);
+            message.Property(m => m.Direction).HasMaxLength(20).IsRequired();
             message.Property(m => m.SenderEmail).HasMaxLength(256).IsRequired();
             message.Property(m => m.SenderName).HasMaxLength(100);
             message.Property(m => m.Body).IsRequired();
