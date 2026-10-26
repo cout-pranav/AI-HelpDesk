@@ -3,7 +3,8 @@ import type { AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
-import { TicketDetail, type TicketDetailData } from './TicketDetail'
+import type { TicketDetailData } from '@/types/ticket'
+import { TicketDetail } from './TicketDetail'
 
 // Keep the real ApiError (the component checks instanceof) and stub only the HTTP call.
 vi.mock('@/lib/api', async (importOriginal) => {
@@ -66,7 +67,8 @@ describe('TicketDetail', () => {
     expect(screen.getByLabelText('Loading ticket')).toHaveAttribute('aria-busy', 'true')
   })
 
-  it('shows the ticket fields', async () => {
+  // Each part's details are covered by its own test (TicketDetailHeading, TicketProperties).
+  it('shows the fetched ticket in the header and the properties sidebar', async () => {
     respondWith(ticket)
 
     renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
@@ -76,37 +78,14 @@ describe('TicketDetail', () => {
       level: 1,
     })
     expect(screen.getByText('#42')).toBeInTheDocument()
-    const field = (term: string) => screen.getByText(term, { selector: 'dt' }).nextElementSibling
-    // Status and category are editable by everyone.
-    expect(screen.getByRole('combobox', { name: 'Status' })).toHaveDisplayValue('Open')
-    expect(screen.getByRole('combobox', { name: 'Category' })).toHaveDisplayValue('Refund request')
+    const sidebar = screen.getByRole('complementary', { name: 'Ticket properties' })
+    expect(within(sidebar).getByRole('combobox', { name: 'Status' })).toHaveDisplayValue('Open')
+    expect(within(sidebar).getByRole('combobox', { name: 'Category' })).toHaveDisplayValue(
+      'Refund request',
+    )
     // Without canAssign the assignee is plain text, not a picker.
-    expect(field('Assignee')).toHaveTextContent('Alex Agent')
+    expect(within(sidebar).getByText('Alex Agent')).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'Assignee' })).not.toBeInTheDocument()
-    expect(field('Submitter')).toHaveTextContent('Jane Student <jane@example.com>')
-    expect(field('Source')).toHaveTextContent('email')
-    expect(field('Received')).toHaveTextContent(new Date(ticket.createdAt).toLocaleString())
-    expect(field('Updated')).toHaveTextContent(new Date(ticket.updatedAt).toLocaleString())
-  })
-
-  it('falls back to the email and Uncategorized when name and category are missing', async () => {
-    respondWith({
-      ...ticket,
-      submitterName: null,
-      category: null,
-      assignee: null,
-    })
-
-    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
-
-    await screen.findByRole('heading', {
-      name: 'Refund for duplicate charge',
-      level: 1,
-    })
-    const field = (term: string) => screen.getByText(term, { selector: 'dt' }).nextElementSibling
-    expect(field('Submitter')).toHaveTextContent(/^jane@example\.com$/)
-    expect(screen.getByRole('combobox', { name: 'Category' })).toHaveDisplayValue('Uncategorized')
-    expect(field('Assignee')).toHaveTextContent('Unassigned')
   })
 
   // How each message renders is covered by TicketThread.test.tsx.

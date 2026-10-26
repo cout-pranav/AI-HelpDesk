@@ -5,15 +5,14 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
-import type { AssigneeOption } from './useAssigneeOptions'
+import type { TicketListItem, TicketListResponse } from '@/types/ticket'
+import type { AssigneeOption } from '@/types/user'
 import {
   SEARCH_DEBOUNCE_MS,
   TICKETS_PAGE_SIZE,
   TicketsList,
   UNASSIGNED,
   UNCATEGORIZED,
-  type TicketListItem,
-  type TicketListResponse,
 } from './TicketsList'
 
 // Keep the real ApiError (the component checks instanceof) and stub only the HTTP call.

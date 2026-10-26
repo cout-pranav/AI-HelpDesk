@@ -6,9 +6,8 @@ import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
 import { makeTicket } from '@/test/ticketFixtures'
 import { TicketAssignee } from './TicketAssignee'
-import type { TicketDetailData } from './TicketDetail'
-import type { TicketAssigneeData } from './ticketDisplay'
-import type { AssigneeOption } from './useAssigneeOptions'
+import type { TicketAssigneeData, TicketDetailData } from '@/types/ticket'
+import type { AssigneeOption } from '@/types/user'
 
 // Keep the real ApiError (the component checks instanceof) and stub only the HTTP calls.
 vi.mock('@/lib/api', async (importOriginal) => {

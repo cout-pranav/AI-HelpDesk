@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
 import { DeleteUserDialog } from './DeleteUserDialog'
-import type { UserListItem } from './UsersList'
+import type { UserListItem } from '@/types/user'
 
 // Keep the real ApiError (the component checks instanceof) and stub only the HTTP call.
 vi.mock('@/lib/api', async (importOriginal) => {

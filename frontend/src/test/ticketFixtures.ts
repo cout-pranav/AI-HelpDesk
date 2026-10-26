@@ -1,4 +1,4 @@
-import type { TicketDetailData } from '@/tickets/TicketDetail'
+import type { TicketDetailData } from '@/types/ticket'
 
 // A ticket for components that take the whole ticket; override only what the test is about.
 export function makeTicket(overrides: Partial<TicketDetailData> = {}): TicketDetailData {

@@ -31,42 +31,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { api, errorMessage } from '@/lib/api'
-import {
-  categoryLabels,
-  statusVariants,
-  ticketCategories,
-  ticketStatuses,
-  type TicketAssigneeData,
-  type TicketCategory,
-  type TicketStatus,
-} from './ticketDisplay'
+import type { TicketListItem, TicketListResponse } from '@/types/ticket'
+import { categoryLabels, statusVariants, ticketCategories, ticketStatuses } from './ticketDisplay'
 import { useAssigneeOptions } from './useAssigneeOptions'
 
-export type { TicketCategory, TicketStatus } from './ticketDisplay'
-
-
-export type TicketListItem = {
-  id: number
-  subject: string
-  status: TicketStatus
-  category: TicketCategory | null
-  source: string
-  submitterEmail: string
-  submitterName: string | null
-  assignee: TicketAssigneeData | null
-  createdAt: string
-  updatedAt: string
-}
-
-export type TicketListResponse = {
-  items: TicketListItem[]
-  page: number
-  pageSize: number
-  totalCount: number
-}
-
 export const TICKETS_PAGE_SIZE = 25
-
 
 // Column ids double as the API's sortBy values.
 const columnLabels = {

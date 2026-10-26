@@ -1,13 +1,6 @@
+import type { TicketCategory, TicketStatus } from '@/types/ticket'
+
 // Labels and badge styles shared by the ticket list and detail views.
-export type TicketStatus = 'Open' | 'Resolved' | 'Closed'
-export type TicketCategory = 'GeneralQuestion' | 'TechnicalQuestion' | 'RefundRequest'
-
-export type TicketAssigneeData = {
-  id: number
-  displayName: string
-  email: string
-}
-
 export const categoryLabels: Record<TicketCategory, string> = {
   GeneralQuestion: 'General question',
   TechnicalQuestion: 'Technical question',
@@ -22,6 +15,11 @@ export const statusVariants: Record<TicketStatus, 'default' | 'secondary' | 'out
 
 export const ticketStatuses = Object.keys(statusVariants) as TicketStatus[]
 export const ticketCategories = Object.keys(categoryLabels) as TicketCategory[]
+
+// The detail page layout, shared by TicketDetail and its loading skeleton: a wide main column for
+// the ticket and its thread, and a fixed-width sidebar for the editable fields (so every dropdown
+// gets the same width). The columns stack on small screens.
+export const ticketDetailColumns = 'grid gap-8 lg:grid-cols-[minmax(0,1fr)_14rem]'
 
 // An API timestamp (UTC, ISO 8601) in the viewer's locale and time zone.
 export function formatDate(value: string) {

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { TicketDetailData } from './TicketDetail'
+import type { TicketDetailData } from '@/types/ticket'
 
 // POST /api/tickets/{id}/replies returns the updated ticket, which replaces the cached detail;
 // the reply bumps the ticket's updated time, so list rows are refetched.

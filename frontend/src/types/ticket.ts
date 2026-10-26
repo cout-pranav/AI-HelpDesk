@@ -1,0 +1,53 @@
+export type TicketStatus = 'Open' | 'Resolved' | 'Closed'
+export type TicketCategory = 'GeneralQuestion' | 'TechnicalQuestion' | 'RefundRequest'
+
+export type TicketAssigneeData = {
+  id: number
+  displayName: string
+  email: string
+}
+
+export type TicketListItem = {
+  id: number
+  subject: string
+  status: TicketStatus
+  category: TicketCategory | null
+  source: string
+  submitterEmail: string
+  submitterName: string | null
+  assignee: TicketAssigneeData | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type TicketListResponse = {
+  items: TicketListItem[]
+  page: number
+  pageSize: number
+  totalCount: number
+}
+
+export type TicketMessage = {
+  id: number
+  // inbound: from the customer; outbound: an agent's reply.
+  direction: 'inbound' | 'outbound'
+  senderEmail: string
+  senderName: string | null
+  body: string
+  attachmentNames: string[]
+  createdAt: string
+}
+
+export type TicketDetailData = {
+  id: number
+  subject: string
+  status: TicketStatus
+  category: TicketCategory | null
+  source: string
+  submitterEmail: string
+  submitterName: string | null
+  createdAt: string
+  updatedAt: string
+  assignee: TicketAssigneeData | null
+  messages: TicketMessage[]
+}

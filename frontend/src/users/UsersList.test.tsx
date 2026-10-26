@@ -3,7 +3,8 @@ import type { AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
-import { UsersList, type UserListItem } from './UsersList'
+import type { UserListItem } from '@/types/user'
+import { UsersList } from './UsersList'
 
 // Keep the real ApiError (the component checks instanceof) and stub only the HTTP call.
 vi.mock('@/lib/api', async (importOriginal) => {

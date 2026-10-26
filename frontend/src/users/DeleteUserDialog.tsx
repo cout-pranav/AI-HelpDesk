@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { api, errorMessage } from '@/lib/api'
-import type { UserListItem } from './UsersList'
+import type { UserListItem } from '@/types/user'
 
 // Soft-deletes an agent after confirmation. Not rendered for admins, who can't be deleted.
 export function DeleteUserDialog({ user }: { user: UserListItem }) {

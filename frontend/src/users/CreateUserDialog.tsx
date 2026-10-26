@@ -2,7 +2,7 @@ import { UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import { UserFormDialog, type UserFormValues } from './UserFormDialog'
-import type { UserListItem } from './UsersList'
+import type { UserListItem } from '@/types/user'
 
 // confirmPassword is a client-side check only; the API doesn't take it.
 const createUser = ({ displayName, email, password }: UserFormValues) =>

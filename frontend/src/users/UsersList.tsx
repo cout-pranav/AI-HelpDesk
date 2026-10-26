@@ -11,19 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { Role } from '@/auth/authContext'
 import { api, errorMessage } from '@/lib/api'
+import type { UserListItem } from '@/types/user'
 import { DeleteUserDialog } from './DeleteUserDialog'
 import { EditUserDialog } from './EditUserDialog'
-
-export type UserListItem = {
-  id: number
-  email: string
-  displayName: string
-  role: Role
-  isActive: boolean
-  createdAt: string
-}
 
 export function UsersList() {
   const users = useQuery({

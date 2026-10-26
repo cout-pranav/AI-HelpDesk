@@ -1,6 +1,6 @@
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { errorMessage } from '@/lib/api'
-import type { TicketDetailData } from './TicketDetail'
+import type { TicketDetailData } from '@/types/ticket'
 import { useAssigneeOptions } from './useAssigneeOptions'
 import { useUpdateTicket } from './useUpdateTicket'
 

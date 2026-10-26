@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
 import { makeTicket } from '@/test/ticketFixtures'
-import type { TicketDetailData } from './TicketDetail'
+import type { TicketDetailData } from '@/types/ticket'
 import { TicketReplyForm } from './TicketReplyForm'
 
 // Keep the real ApiError (the component checks instanceof) and stub only the HTTP call.

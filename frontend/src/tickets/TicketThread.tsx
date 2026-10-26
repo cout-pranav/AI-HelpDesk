@@ -1,11 +1,12 @@
 import { Paperclip } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import type { TicketMessage } from './TicketDetail'
+import type { TicketDetailData } from '@/types/ticket'
 import { formatDate } from './ticketDisplay'
 
 // The ticket's messages oldest first: the customer's emails and the agents' replies.
-export function TicketThread({ messages }: { messages: TicketMessage[] }) {
+export function TicketThread({ ticket }: { ticket: TicketDetailData }) {
+  const { messages } = ticket
   return (
     <section aria-labelledby="ticket-messages">
       <h2 id="ticket-messages" className="mb-3">

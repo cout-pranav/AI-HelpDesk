@@ -4,7 +4,7 @@ import type { AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
-import type { UserListItem } from '@/users/UsersList'
+import type { UserListItem } from '@/types/user'
 import { UsersPage } from './UsersPage'
 
 // Keep the real ApiError and stub only the HTTP calls the page makes.

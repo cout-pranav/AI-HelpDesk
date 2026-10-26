@@ -2,7 +2,7 @@ import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import { UserFormDialog, type UserFormValues } from './UserFormDialog'
-import type { UserListItem } from './UsersList'
+import type { UserListItem } from '@/types/user'
 
 export function EditUserDialog({ user }: { user: UserListItem }) {
   // A blank password is left out so the API keeps the current one.

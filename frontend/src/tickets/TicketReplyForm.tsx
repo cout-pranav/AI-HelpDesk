@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Textarea } from '@/components/ui/textarea'
 import { errorMessage } from '@/lib/api'
-import type { TicketDetailData } from './TicketDetail'
+import type { TicketDetailData } from '@/types/ticket'
 import { useAddReply } from './useAddReply'
 
 const replySchema = z.object({

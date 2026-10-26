@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext, type AuthContextValue } from '@/auth/authContext'
 import { api } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
-import type { TicketDetailData } from '@/tickets/TicketDetail'
+import type { TicketDetailData } from '@/types/ticket'
 import { TicketDetailPage } from './TicketDetailPage'
 
 vi.mock('@/lib/api', async (importOriginal) => {

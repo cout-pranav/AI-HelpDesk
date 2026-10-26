@@ -19,7 +19,7 @@ import {
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { ApiError, errorMessage } from '@/lib/api'
-import type { UserListItem } from './UsersList'
+import type { UserListItem } from '@/types/user'
 
 export type UserFormMode = 'create' | 'edit'
 

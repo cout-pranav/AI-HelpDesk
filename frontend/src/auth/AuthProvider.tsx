@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, configureApiAuth } from '../lib/api'
-import {
-  AuthContext,
-  type AuthContextValue,
-  type AuthUser,
-  type LoginCredentials,
-  type LoginResponse,
-} from './authContext'
+import type { AuthUser, LoginCredentials, LoginResponse } from '@/types/auth'
+import { AuthContext, type AuthContextValue } from './authContext'
 
 const TOKEN_STORAGE_KEY = 'auth.token'
 const ME_QUERY_KEY = ['auth', 'me'] as const

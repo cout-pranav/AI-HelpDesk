@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom'
-import { useAuth, type Role } from './authContext'
+import type { Role } from '@/types/auth'
+import { useAuth } from './authContext'
 
 // Layout route for role-gated pages. Nest it under <RequireAuth /> so `user`
 // is already loaded; users without the role are sent back to the home page.

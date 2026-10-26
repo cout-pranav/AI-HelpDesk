@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { TicketDetailData } from './TicketDetail'
+import type { TicketDetailData } from '@/types/ticket'
 
 type TicketUpdates = {
   status: { status: string }

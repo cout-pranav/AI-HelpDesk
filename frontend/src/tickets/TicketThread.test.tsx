@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import type { TicketMessage } from './TicketDetail'
+import { makeTicket } from '@/test/ticketFixtures'
+import type { TicketMessage } from '@/types/ticket'
 import { TicketThread } from './TicketThread'
 
 const customerMessage: TicketMessage = {
@@ -32,7 +33,7 @@ function threadItems() {
 
 describe('TicketThread', () => {
   it('shows a message when there are no messages', () => {
-    render(<TicketThread messages={[]} />)
+    render(<TicketThread ticket={makeTicket({ messages: [] })} />)
 
     expect(screen.getByText('No messages.')).toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
@@ -47,7 +48,7 @@ describe('TicketThread', () => {
       createdAt: '2026-10-06T09:00:00Z',
     }
 
-    render(<TicketThread messages={[customerMessage, followUp]} />)
+    render(<TicketThread ticket={makeTicket({ messages: [customerMessage, followUp] })} />)
 
     const [first, second] = threadItems()
     expect(within(first).getByText('Jane Student')).toBeInTheDocument()
@@ -68,7 +69,8 @@ describe('TicketThread', () => {
   })
 
   it('falls back to the email when the sender has no name', () => {
-    render(<TicketThread messages={[{ ...customerMessage, senderName: null }]} />)
+    const ticket = makeTicket({ messages: [{ ...customerMessage, senderName: null }] })
+    render(<TicketThread ticket={ticket} />)
 
     const [message] = threadItems()
     expect(message).toHaveAccessibleName('Message from jane@example.com')
@@ -76,7 +78,7 @@ describe('TicketThread', () => {
   })
 
   it('labels agent replies and marks them with a Reply badge', () => {
-    render(<TicketThread messages={[customerMessage, reply]} />)
+    render(<TicketThread ticket={makeTicket({ messages: [customerMessage, reply] })} />)
 
     const items = threadItems()
     expect(items.map((li) => li.getAttribute('aria-label'))).toEqual([
