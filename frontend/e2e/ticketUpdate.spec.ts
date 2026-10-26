@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { apiLogin, seedToken } from './helpers/auth.ts'
+import { apiLogin, apiUrl, seedToken } from './helpers/auth.ts'
 import { postInboundEmail, uniqueId } from './helpers/inboundEmail.ts'
 import { apiCreateUser } from './helpers/users.ts'
 
@@ -50,5 +50,37 @@ test.describe('ticket status and category', () => {
     await expect(row).toHaveCount(1)
     await expect(row).toContainText('Resolved')
     await expect(row).toContainText('Technical question')
+  })
+
+  test('the API rejects unknown values, accepts lowercase and lets a closed ticket reopen', async ({
+    request,
+  }) => {
+    const created = await postInboundEmail(request, { subject: uniqueId('api-update') })
+    const { ticketId } = (await created.json()) as { ticketId: number }
+    const agent = await apiCreateUser(request)
+    const { token } = await apiLogin(request, agent)
+    const headers = { Authorization: `Bearer ${token}` }
+    const url = `${apiUrl}/api/tickets/${ticketId}`
+
+    const badStatus = await request.put(`${url}/status`, { headers, data: { status: 'Bogus' } })
+    expect(badStatus.status()).toBe(400)
+    const badCategory = await request.put(`${url}/category`, { headers, data: { category: 'Bogus' } })
+    expect(badCategory.status()).toBe(400)
+
+    const lower = await request.put(`${url}/status`, { headers, data: { status: 'resolved' } })
+    expect(lower.status()).toBe(200)
+    expect(((await lower.json()) as { status: string }).status).toBe('Resolved')
+    const lowerCategory = await request.put(`${url}/category`, {
+      headers,
+      data: { category: 'refundrequest' },
+    })
+    expect(lowerCategory.status()).toBe(200)
+    expect(((await lowerCategory.json()) as { category: string }).category).toBe('RefundRequest')
+
+    const closed = await request.put(`${url}/status`, { headers, data: { status: 'Closed' } })
+    expect(closed.status()).toBe(200)
+    const reopened = await request.put(`${url}/status`, { headers, data: { status: 'Open' } })
+    expect(reopened.status()).toBe(200)
+    expect(((await reopened.json()) as { status: string }).status).toBe('Open')
   })
 })

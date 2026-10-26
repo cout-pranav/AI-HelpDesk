@@ -85,6 +85,23 @@ test.describe('ticket detail', () => {
     await expect(page).toHaveURL(/\/login$/)
   })
 
+  test('an html-only email shows as plain text without tags', async ({ page, request }) => {
+    const response = await postInboundEmail(request, {
+      subject: uniqueId('html'),
+      text: null,
+      html: '<p>Hello <b>bold</b> world</p><script>alert(1)</script>',
+    })
+    expect(response.status()).toBe(201)
+    const { ticketId } = (await response.json()) as { ticketId: number }
+    await loginAsAdmin(page, request)
+
+    await page.goto(`/tickets/${ticketId}`)
+    const messages = page.getByRole('region', { name: 'Messages' })
+    await expect(messages.getByText('Hello bold world')).toBeVisible()
+    await expect(messages).not.toContainText('<')
+    await expect(messages).not.toContainText('alert(1)')
+  })
+
   test('an agent can view the detail page', async ({ page, request }) => {
     const ticket = await createTicket(request)
     const agent = await apiCreateUser(request)
