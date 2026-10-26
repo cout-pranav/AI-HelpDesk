@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { polishReply } from '@/lib/ai'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
 import { makeTicket } from '@/test/ticketFixtures'
@@ -14,11 +15,70 @@ vi.mock('@/lib/api', async (importOriginal) => {
   return { ...actual, api: { post: vi.fn() } }
 })
 
+vi.mock('@/lib/ai', () => ({ polishReply: vi.fn() }))
+
 const postMock = vi.mocked(api.post)
+const polishMock = vi.mocked(polishReply)
 
 describe('TicketReplyForm', () => {
   beforeEach(() => {
     postMock.mockReset()
+    polishMock.mockReset()
+  })
+
+  it('disables Polish until there is a draft', async () => {
+    const user = userEvent.setup()
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+
+    const polishButton = screen.getByRole('button', { name: 'Polish' })
+    expect(polishButton).toBeDisabled()
+    await user.type(screen.getByRole('textbox', { name: 'Reply' }), '   ')
+    expect(polishButton).toBeDisabled()
+    await user.type(screen.getByRole('textbox', { name: 'Reply' }), 'ok')
+    expect(polishButton).toBeEnabled()
+  })
+
+  it('polishes the trimmed draft with the ticket subject, disabling both buttons meanwhile', async () => {
+    const user = userEvent.setup()
+    polishMock.mockReturnValue(new Promise(() => {}))
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+
+    await user.type(screen.getByRole('textbox', { name: 'Reply' }), '  refund is done  ')
+    await user.click(screen.getByRole('button', { name: 'Polish' }))
+
+    expect(polishMock).toHaveBeenCalledExactlyOnceWith({
+      draft: 'refund is done',
+      subject: 'Refund for duplicate charge',
+    })
+    expect(screen.getByRole('button', { name: 'Polishing…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Send reply' })).toBeDisabled()
+  })
+
+  it('replaces the draft with the polished reply without sending it', async () => {
+    const user = userEvent.setup()
+    polishMock.mockResolvedValue('Your refund has been processed.')
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+
+    const textbox = screen.getByRole('textbox', { name: 'Reply' })
+    await user.type(textbox, 'refund is done')
+    await user.click(screen.getByRole('button', { name: 'Polish' }))
+
+    await vi.waitFor(() => expect(textbox).toHaveValue('Your refund has been processed.'))
+    expect(screen.getByRole('button', { name: 'Polish' })).toBeEnabled()
+    expect(postMock).not.toHaveBeenCalled()
+  })
+
+  it('shows an error and keeps the draft when polishing fails', async () => {
+    const user = userEvent.setup()
+    polishMock.mockRejectedValue(new Error('quota exceeded'))
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+
+    const textbox = screen.getByRole('textbox', { name: 'Reply' })
+    await user.type(textbox, 'refund is done')
+    await user.click(screen.getByRole('button', { name: 'Polish' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not polish the reply.')
+    expect(textbox).toHaveValue('refund is done')
   })
 
   it('posts the trimmed reply, disabling the button while it sends', async () => {
