@@ -10,7 +10,16 @@ import { TicketThread } from './TicketThread'
 import { ticketDetailColumns } from './ticketDisplay'
 
 // canAssign shows an assignee picker instead of plain text (admins only; the API enforces it too).
-export function TicketDetail({ ticketId, canAssign }: { ticketId: number; canAssign: boolean }) {
+// agentName is the signed-in user's name, used to sign polished replies.
+export function TicketDetail({
+  ticketId,
+  canAssign,
+  agentName,
+}: {
+  ticketId: number
+  canAssign: boolean
+  agentName: string
+}) {
   const ticket = useQuery({
     queryKey: ['tickets', 'detail', ticketId],
     queryFn: () => api.get<TicketDetailData>(`/api/tickets/${ticketId}`).then((r) => r.data),
@@ -36,7 +45,7 @@ export function TicketDetail({ ticketId, canAssign }: { ticketId: number; canAss
           <h2 id="ticket-reply" className="mb-3">
             Reply
           </h2>
-          <TicketReplyForm ticket={t} />
+          <TicketReplyForm ticket={t} agentName={agentName} />
         </section>
       </div>
 

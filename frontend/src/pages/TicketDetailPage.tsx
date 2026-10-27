@@ -22,7 +22,11 @@ export function TicketDetailPage() {
       {ticketId === null ? (
         <ErrorAlert>Ticket not found.</ErrorAlert>
       ) : (
-        <TicketDetail ticketId={ticketId} canAssign={user?.role === 'Admin'} />
+        <TicketDetail
+          ticketId={ticketId}
+          canAssign={user?.role === 'Admin'}
+          agentName={user?.displayName ?? ''}
+        />
       )}
     </>
   )

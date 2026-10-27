@@ -15,15 +15,15 @@ const replySchema = z.object({
   body: z
     .string()
     .trim()
-    .min(1, 'Reply cannot be empty.')
     .max(10000, 'Reply must be at most 10,000 characters.'), // the API's limit
 })
 
 type ReplyValues = z.infer<typeof replySchema>
 
-export function TicketReplyForm({ ticket }: { ticket: TicketDetailData }) {
+// agentName signs replies polished with AI.
+export function TicketReplyForm({ ticket, agentName }: { ticket: TicketDetailData; agentName: string }) {
   const addReply = useAddReply(ticket.id)
-  const polish = usePolishReply(ticket.subject)
+  const polish = usePolishReply(ticket, agentName)
   const {
     register,
     handleSubmit,
@@ -77,7 +77,7 @@ export function TicketReplyForm({ ticket }: { ticket: TicketDetailData }) {
             {polish.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />}
             {polish.isPending ? 'Polishing…' : 'Polish'}
           </Button>
-          <Button type="submit" disabled={addReply.isPending || polish.isPending}>
+          <Button type="submit" disabled={!hasDraft || addReply.isPending || polish.isPending}>
             {addReply.isPending && <Loader2 className="animate-spin" />}
             {addReply.isPending ? 'Sending…' : 'Send reply'}
           </Button>
