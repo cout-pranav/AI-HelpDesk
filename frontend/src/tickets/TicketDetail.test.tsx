@@ -50,7 +50,7 @@ describe('TicketDetail', () => {
   it('fetches the ticket by id', async () => {
     respondWith(ticket)
 
-    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} agentName="Alex Agent" />)
 
     await screen.findByRole('heading', {
       name: 'Refund for duplicate charge',
@@ -62,7 +62,7 @@ describe('TicketDetail', () => {
   it('shows a busy skeleton while loading', () => {
     getMock.mockReturnValue(new Promise(() => {}))
 
-    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} agentName="Alex Agent" />)
 
     expect(screen.getByLabelText('Loading ticket')).toHaveAttribute('aria-busy', 'true')
   })
@@ -71,7 +71,7 @@ describe('TicketDetail', () => {
   it('shows the fetched ticket in the header and the properties sidebar', async () => {
     respondWith(ticket)
 
-    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} agentName="Alex Agent" />)
 
     await screen.findByRole('heading', {
       name: 'Refund for duplicate charge',
@@ -92,7 +92,7 @@ describe('TicketDetail', () => {
   it('shows the fetched messages, followed by the reply form', async () => {
     respondWith(ticket)
 
-    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} agentName="Alex Agent" />)
 
     const thread = await screen.findByRole('region', { name: 'Messages' })
     expect(within(thread).getByRole('listitem', { name: 'Message from Jane Student' })).toBeInTheDocument()
@@ -102,7 +102,7 @@ describe('TicketDetail', () => {
   it('shows an assignee picker when canAssign is set', async () => {
     respondWith(ticket)
 
-    renderWithQueryClient(<TicketDetail ticketId={42} canAssign />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign agentName="Alex Agent" />)
 
     expect(await screen.findByRole('combobox', { name: 'Assignee' })).toHaveDisplayValue(
       'Alex Agent',
@@ -112,7 +112,7 @@ describe('TicketDetail', () => {
   it('shows the API error message, e.g. when the ticket does not exist', async () => {
     getMock.mockRejectedValue(new ApiError(404, 'Ticket not found.'))
 
-    renderWithQueryClient(<TicketDetail ticketId={999} canAssign={false} />)
+    renderWithQueryClient(<TicketDetail ticketId={999} canAssign={false} agentName="Alex Agent" />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Ticket not found.')
   })
@@ -120,7 +120,7 @@ describe('TicketDetail', () => {
   it('shows a generic error when the request fails without an API error', async () => {
     getMock.mockRejectedValue(new Error('Network Error'))
 
-    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} />)
+    renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} agentName="Alex Agent" />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the ticket.')
   })

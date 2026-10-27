@@ -28,7 +28,7 @@ describe('TicketReplyForm', () => {
 
   it('disables Polish until there is a draft', async () => {
     const user = userEvent.setup()
-    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} agentName="Alex Agent" />)
 
     const polishButton = screen.getByRole('button', { name: 'Polish' })
     expect(polishButton).toBeDisabled()
@@ -38,10 +38,10 @@ describe('TicketReplyForm', () => {
     expect(polishButton).toBeEnabled()
   })
 
-  it('polishes the trimmed draft with the ticket subject, disabling both buttons meanwhile', async () => {
+  it('polishes the trimmed draft with the ticket subject, customer and agent names, disabling both buttons meanwhile', async () => {
     const user = userEvent.setup()
     polishMock.mockReturnValue(new Promise(() => {}))
-    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} agentName="Alex Agent" />)
 
     await user.type(screen.getByRole('textbox', { name: 'Reply' }), '  refund is done  ')
     await user.click(screen.getByRole('button', { name: 'Polish' }))
@@ -49,6 +49,8 @@ describe('TicketReplyForm', () => {
     expect(polishMock).toHaveBeenCalledExactlyOnceWith({
       draft: 'refund is done',
       subject: 'Refund for duplicate charge',
+      customerName: 'Jane Student',
+      agentName: 'Alex Agent',
     })
     expect(screen.getByRole('button', { name: 'Polishing…' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Send reply' })).toBeDisabled()
@@ -57,7 +59,7 @@ describe('TicketReplyForm', () => {
   it('replaces the draft with the polished reply without sending it', async () => {
     const user = userEvent.setup()
     polishMock.mockResolvedValue('Your refund has been processed.')
-    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} agentName="Alex Agent" />)
 
     const textbox = screen.getByRole('textbox', { name: 'Reply' })
     await user.type(textbox, 'refund is done')
@@ -71,7 +73,7 @@ describe('TicketReplyForm', () => {
   it('shows an error and keeps the draft when polishing fails', async () => {
     const user = userEvent.setup()
     polishMock.mockRejectedValue(new Error('quota exceeded'))
-    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} agentName="Alex Agent" />)
 
     const textbox = screen.getByRole('textbox', { name: 'Reply' })
     await user.type(textbox, 'refund is done')
@@ -84,7 +86,7 @@ describe('TicketReplyForm', () => {
   it('posts the trimmed reply, disabling the button while it sends', async () => {
     const user = userEvent.setup()
     postMock.mockReturnValue(new Promise(() => {}))
-    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} agentName="Alex Agent" />)
 
     await user.type(screen.getByRole('textbox', { name: 'Reply' }), '  Refund issued.  ')
     await user.click(screen.getByRole('button', { name: 'Send reply' }))
@@ -98,36 +100,33 @@ describe('TicketReplyForm', () => {
   it('clears the reply once it is saved', async () => {
     const user = userEvent.setup()
     postMock.mockResolvedValue({ data: {} } as AxiosResponse<TicketDetailData>)
-    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} agentName="Alex Agent" />)
 
     const textbox = screen.getByRole('textbox', { name: 'Reply' })
     await user.type(textbox, 'Refund issued.')
     await user.click(screen.getByRole('button', { name: 'Send reply' }))
 
     await vi.waitFor(() => expect(textbox).toHaveValue(''))
-    expect(screen.getByRole('button', { name: 'Send reply' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Send reply' })).toBeDisabled()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('rejects an empty or whitespace-only reply without calling the API', async () => {
+  it('disables Send reply until there is a draft', async () => {
     const user = userEvent.setup()
-    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} agentName="Alex Agent" />)
 
-    const textbox = screen.getByRole('textbox', { name: 'Reply' })
-    await user.click(screen.getByRole('button', { name: 'Send reply' }))
-    expect(await screen.findByText('Reply cannot be empty.')).toBeInTheDocument()
-    expect(textbox).toHaveAttribute('aria-invalid', 'true')
-
-    await user.type(textbox, '   ')
-    await user.click(screen.getByRole('button', { name: 'Send reply' }))
-    expect(screen.getByText('Reply cannot be empty.')).toBeInTheDocument()
-    expect(postMock).not.toHaveBeenCalled()
+    const sendButton = screen.getByRole('button', { name: 'Send reply' })
+    expect(sendButton).toBeDisabled()
+    await user.type(screen.getByRole('textbox', { name: 'Reply' }), '   ')
+    expect(sendButton).toBeDisabled()
+    await user.type(screen.getByRole('textbox', { name: 'Reply' }), 'ok')
+    expect(sendButton).toBeEnabled()
   })
 
   it('shows the API error message and keeps the draft when sending fails', async () => {
     const user = userEvent.setup()
     postMock.mockRejectedValue(new ApiError(404, 'Ticket not found.'))
-    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} agentName="Alex Agent" />)
 
     const textbox = screen.getByRole('textbox', { name: 'Reply' })
     await user.type(textbox, 'Refund issued.')
@@ -140,7 +139,7 @@ describe('TicketReplyForm', () => {
   it('shows a generic error when the request fails without an API error', async () => {
     const user = userEvent.setup()
     postMock.mockRejectedValue(new Error('Network Error'))
-    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} />)
+    renderWithQueryClient(<TicketReplyForm ticket={makeTicket()} agentName="Alex Agent" />)
 
     await user.type(screen.getByRole('textbox', { name: 'Reply' }), 'Refund issued.')
     await user.click(screen.getByRole('button', { name: 'Send reply' }))
