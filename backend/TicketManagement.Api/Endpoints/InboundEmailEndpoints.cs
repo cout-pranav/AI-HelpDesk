@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TicketManagement.Api.Ai;
 using TicketManagement.Api.Data;
 using TicketManagement.Api.Email;
 using TicketManagement.Api.Models;
@@ -47,6 +48,7 @@ public static class InboundEmailEndpoints
             HttpContext http,
             IConfiguration config,
             TicketManagementDbContext db,
+            TicketClassificationQueue classificationQueue,
             ILogger<InboundEmailRequest> logger) =>
         {
             var secret = config[SecretConfigKey];
@@ -129,6 +131,8 @@ public static class InboundEmailEndpoints
             }
 
             logger.LogInformation("Created ticket {TicketId} from an inbound email.", ticket.Id);
+            // Classified in the background (TicketClassificationWorker), so the webhook isn't held up.
+            classificationQueue.Enqueue(ticket.Id);
             return Results.Created($"/api/tickets/{ticket.Id}", new InboundEmailResponse(ticket.Id, Duplicate: false));
         })
         .AllowAnonymous()

@@ -2,7 +2,10 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using TicketManagement.Api.Ai;
 using TicketManagement.Api.Auth;
 using TicketManagement.Api.Data;
 using TicketManagement.Api.Endpoints;
@@ -52,6 +55,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 builder.Services.AddLoginRateLimiting(enabled: builder.Environment.IsProduction());
+
+// AI: IAiService runs over an IChatClient backed by Gemini. The client is built on first use, so
+// a missing Gemini:ApiKey doesn't break startup; the classification worker skips work instead.
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection(GeminiOptions.SectionName));
+builder.Services.AddChatClient(sp =>
+    {
+        var gemini = sp.GetRequiredService<IOptions<GeminiOptions>>().Value;
+        return new Google.GenAI.Client(apiKey: gemini.ApiKey).AsIChatClient(gemini.Model);
+    })
+    .UseLogging();
+builder.Services.AddScoped<IAiService, ChatAiService>();
+builder.Services.AddSingleton<TicketClassificationQueue>();
+builder.Services.AddHostedService<TicketClassificationWorker>();
 
 var app = builder.Build();
 
