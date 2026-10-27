@@ -6,6 +6,7 @@ import { TicketDetailHeading } from './TicketDetailHeading'
 import { TicketDetailSkeleton } from './TicketDetailSkeleton'
 import { TicketProperties } from './TicketProperties'
 import { TicketReplyForm } from './TicketReplyForm'
+import { TicketSummary } from './TicketSummary'
 import { TicketThread } from './TicketThread'
 import { ticketDetailColumns } from './ticketDisplay'
 
@@ -39,6 +40,7 @@ export function TicketDetail({
       <div className="min-w-0">
         <TicketDetailHeading ticket={t} />
 
+        <TicketSummary ticket={t} />
         <TicketThread ticket={t} />
 
         <section aria-labelledby="ticket-reply" className="mt-8">
