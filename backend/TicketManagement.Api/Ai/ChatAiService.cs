@@ -35,8 +35,13 @@ public class ChatAiService(IChatClient chatClient) : IAiService
 
     private record TicketClassification(string? Category);
 
-    public async Task<string?> ClassifyTicketAsync(string subject, string body, CancellationToken cancellationToken = default)
+    public async Task<string?> ClassifyTicketAsync(Ticket ticket, CancellationToken cancellationToken = default)
     {
+        var body = ticket.Messages
+            .Where(m => m.Direction == MessageDirections.Inbound)
+            .OrderBy(m => m.CreatedAt).ThenBy(m => m.Id)
+            .Select(m => m.Body)
+            .FirstOrDefault() ?? string.Empty;
         if (body.Length > MaxBodyLength)
             body = body[..MaxBodyLength];
 
@@ -48,7 +53,7 @@ public class ChatAiService(IChatClient chatClient) : IAiService
         var response = await chatClient.GetResponseAsync(
             [
                 new ChatMessage(ChatRole.System, ClassifyInstructions),
-                new ChatMessage(ChatRole.User, $"Subject: {subject}\n\nMessage:\n{body}"),
+                new ChatMessage(ChatRole.User, $"Subject: {ticket.Subject}\n\nMessage:\n{body}"),
             ],
             options,
             cancellationToken);

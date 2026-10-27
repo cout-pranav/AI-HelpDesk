@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TicketManagement.Api.Data;
-using TicketManagement.Api.Models;
 
 namespace TicketManagement.Api.Ai;
 
@@ -51,22 +50,13 @@ public class TicketClassificationWorker(
 
         var ticket = await db.Tickets
             .AsNoTracking()
-            .Where(t => t.Id == ticketId && t.Category == null)
-            .Select(t => new
-            {
-                t.Subject,
-                Body = t.Messages
-                    .Where(m => m.Direction == MessageDirections.Inbound)
-                    .OrderBy(m => m.CreatedAt).ThenBy(m => m.Id)
-                    .Select(m => m.Body)
-                    .FirstOrDefault(),
-            })
-            .FirstOrDefaultAsync(cancellationToken);
+            .Include(t => t.Messages)
+            .FirstOrDefaultAsync(t => t.Id == ticketId && t.Category == null, cancellationToken);
         if (ticket is null)
             return; // Deleted, or an agent already set a category.
 
         var ai = scope.ServiceProvider.GetRequiredService<IAiService>();
-        var category = await ai.ClassifyTicketAsync(ticket.Subject, ticket.Body ?? string.Empty, cancellationToken);
+        var category = await ai.ClassifyTicketAsync(ticket, cancellationToken);
         if (category is null)
         {
             logger.LogWarning("AI returned no usable category for ticket {TicketId}.", ticketId);
