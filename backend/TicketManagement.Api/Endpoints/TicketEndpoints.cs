@@ -106,7 +106,7 @@ public static class TicketEndpoints
             if (errors.Count > 0)
                 return Results.ValidationProblem(errors);
 
-            var query = db.Tickets.AsNoTracking();
+            var query = VisibleTickets(db).AsNoTracking();
             if (statusFilter is not null)
                 query = query.Where(t => t.Status == statusFilter);
             if (uncategorized)
@@ -162,7 +162,7 @@ public static class TicketEndpoints
         // Assigns the ticket to an active user (agent or admin), or unassigns it. Returns the updated ticket.
         group.MapPut("/{id:int}/assignee", async (int id, AssignTicketRequest request, TicketManagementDbContext db) =>
         {
-            var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == id);
+            var ticket = await VisibleTickets(db).FirstOrDefaultAsync(t => t.Id == id);
             if (ticket is null)
                 return TicketNotFound();
 
@@ -201,7 +201,7 @@ public static class TicketEndpoints
                     ["status"] = [$"Status must be one of: {string.Join(", ", TicketStatuses.All)}."],
                 });
 
-            var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == id);
+            var ticket = await VisibleTickets(db).FirstOrDefaultAsync(t => t.Id == id);
             if (ticket is null)
                 return TicketNotFound();
 
@@ -225,7 +225,7 @@ public static class TicketEndpoints
                     ["category"] = [$"Category must be one of: {string.Join(", ", TicketCategories.All)}, or null."],
                 });
 
-            var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == id);
+            var ticket = await VisibleTickets(db).FirstOrDefaultAsync(t => t.Id == id);
             if (ticket is null)
                 return TicketNotFound();
 
@@ -253,7 +253,7 @@ public static class TicketEndpoints
                         : $"Reply must be at most {MaxReplyLength} characters."],
                 });
 
-            var ticket = await db.Tickets.FirstOrDefaultAsync(t => t.Id == id);
+            var ticket = await VisibleTickets(db).FirstOrDefaultAsync(t => t.Id == id);
             if (ticket is null)
                 return TicketNotFound();
 
@@ -284,12 +284,17 @@ public static class TicketEndpoints
         return app;
     }
 
+    // Tickets the AI is still processing (New/Processing) are internal: every endpoint here treats
+    // them as not found until the worker resolves or opens them.
+    private static IQueryable<Ticket> VisibleTickets(TicketManagementDbContext db) =>
+        db.Tickets.Where(t => t.Status != TicketStatuses.New && t.Status != TicketStatuses.Processing);
+
     private static IResult TicketNotFound() =>
         Results.Problem("Ticket not found.", statusCode: StatusCodes.Status404NotFound);
 
     private static async Task<TicketDetailDto?> LoadDetail(TicketManagementDbContext db, int id)
     {
-        var ticket = await db.Tickets
+        var ticket = await VisibleTickets(db)
             .AsNoTracking()
             .Include(t => t.Assignee)
             .Include(t => t.Messages.OrderBy(m => m.CreatedAt).ThenBy(m => m.Id))

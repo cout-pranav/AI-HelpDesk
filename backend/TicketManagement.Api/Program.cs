@@ -57,7 +57,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddLoginRateLimiting(enabled: builder.Environment.IsProduction());
 
 // AI: IAiService runs over an IChatClient backed by Gemini. The client is built on first use, so
-// a missing Gemini:ApiKey doesn't break startup; the classification worker skips work instead.
+// a missing Gemini:ApiKey doesn't break startup; new tickets then skip AI processing and start Open.
 builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection(GeminiOptions.SectionName));
 builder.Services.AddChatClient(sp =>
     {
@@ -68,6 +68,9 @@ builder.Services.AddChatClient(sp =>
 builder.Services.AddScoped<IAiService, ChatAiService>();
 builder.Services.AddSingleton<TicketClassificationQueue>();
 builder.Services.AddHostedService<TicketClassificationWorker>();
+builder.Services.AddSingleton<KnowledgeBase>();
+builder.Services.AddSingleton<TicketAutoResolveQueue>();
+builder.Services.AddHostedService<TicketAutoResolveWorker>();
 
 var app = builder.Build();
 

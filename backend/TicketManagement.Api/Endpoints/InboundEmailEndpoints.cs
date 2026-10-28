@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using TicketManagement.Api.Ai;
 using TicketManagement.Api.Data;
 using TicketManagement.Api.Email;
@@ -49,6 +50,8 @@ public static class InboundEmailEndpoints
             IConfiguration config,
             TicketManagementDbContext db,
             TicketClassificationQueue classificationQueue,
+            TicketAutoResolveQueue autoResolveQueue,
+            IOptions<GeminiOptions> geminiOptions,
             ILogger<InboundEmailRequest> logger) =>
         {
             var secret = config[SecretConfigKey];
@@ -94,11 +97,14 @@ public static class InboundEmailEndpoints
             if (messageId is not null && await FindTicketIdByMessageId(db, messageId) is int existingId)
                 return Results.Ok(new InboundEmailResponse(existingId, Duplicate: true));
 
+            // With AI configured the ticket starts New (hidden from agents) until TicketAutoResolveWorker
+            // resolves it or opens it; without AI it goes straight to the agents.
+            var aiConfigured = !string.IsNullOrEmpty(geminiOptions.Value.ApiKey);
             var now = DateTime.UtcNow;
             var ticket = new Ticket
             {
                 Subject = subject,
-                Status = TicketStatuses.Open,
+                Status = aiConfigured ? TicketStatuses.New : TicketStatuses.Open,
                 Source = TicketSources.Email,
                 SubmitterEmail = senderEmail,
                 SubmitterName = senderName,
@@ -131,8 +137,13 @@ public static class InboundEmailEndpoints
             }
 
             logger.LogInformation("Created ticket {TicketId} from an inbound email.", ticket.Id);
-            // Classified in the background (TicketClassificationWorker), so the webhook isn't held up.
-            classificationQueue.Enqueue(ticket.Id);
+            // Classified and auto-resolved in the background by separate workers (TicketClassificationWorker,
+            // TicketAutoResolveWorker), so the webhook isn't held up. Neither depends on the other.
+            if (aiConfigured)
+            {
+                classificationQueue.Enqueue(ticket.Id);
+                autoResolveQueue.Enqueue(ticket.Id);
+            }
             return Results.Created($"/api/tickets/{ticket.Id}", new InboundEmailResponse(ticket.Id, Duplicate: false));
         })
         .AllowAnonymous()

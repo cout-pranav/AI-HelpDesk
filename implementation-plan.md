@@ -4,7 +4,7 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - Auto-reply is human-in-the-loop for v1 (AI drafts, agent approves/sends).
 - Knowledge base starts as admin-authored FAQ/articles (simplest to build; mining past tickets can be added later).
 - Tickets are submitted via an in-app form with name/email typed in (no submitter auth).
-- Refund requests get AI classification/summary like any other ticket, but the AI does not attempt to auto-resolve them — they always require agent action.
+- Refund requests are auto-resolved only within the knowledge base's escalation rules (e.g. a refund outside the 30-day window, a chargeback or a legal threat always goes to an agent).
 
 ## Phase 0 — Project Setup
 - Scaffold ASP.NET Core Web API (.NET 8) solution
@@ -45,6 +45,7 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - Wire AI summary: generate short summary shown in ticket list/detail
 - Wire AI-suggested reply: generate draft reply on ticket detail view, agent edits/approves before sending
 - Knowledge base v1: simple admin-authored FAQ table + basic retrieval (keyword or embedding-based) fed into the reply-draft prompt
+- Auto-resolve on arrival (done): inbound tickets go `New` → `Processing` → `Resolved` (AI reply from `knowledge-base.md`) or `Open`; the internal statuses are hidden from the UI
 - Error handling/fallback when AI call fails (ticket still usable without AI output)
 
 ## Phase 4 — Outbound Email

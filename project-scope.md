@@ -22,6 +22,8 @@ Build a ticket management system that uses AI to automatically classify, respond
 
 Statuses: `open` → `resolved` → `closed`
 
+Inbound tickets first pass through two internal statuses that only the AI uses and the UI never shows: `new` (just arrived) → `processing` (AI is trying to answer it from the knowledge base) → `resolved` (AI replied) or `open` (left for an agent).
+
 ## Ticket Categories
 
 Each ticket belongs to exactly one category: `general question`, `technical question`, `refund request`
