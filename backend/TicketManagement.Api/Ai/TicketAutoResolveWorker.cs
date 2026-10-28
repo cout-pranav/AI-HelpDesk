@@ -71,25 +71,36 @@ public class TicketAutoResolveWorker(
 
             resolved = await TryResolveAsync(db, ai, ticket, cancellationToken);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            throw;
+            logger.LogError(ex, "Auto-resolve failed for ticket {TicketId}; opening it for an agent.", ticketId);
+        }
+        finally
+        {
+            // Not answerable, the AI call failed, or the app is stopping mid-call: hand it to the agents,
+            // so a ticket is never left hidden in Processing.
+            if (!resolved)
+                await OpenTicketAsync(db, ticketId);
+        }
+    }
+
+    // Processing -> Open. Runs even while the app is stopping (no cancellation token).
+    private async Task OpenTicketAsync(TicketManagementDbContext db, int ticketId)
+    {
+        try
+        {
+            var opened = await db.Tickets
+                .Where(t => t.Id == ticketId && t.Status == TicketStatuses.Processing)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(t => t.Status, TicketStatuses.Open)
+                    .SetProperty(t => t.UpdatedAt, DateTime.UtcNow), CancellationToken.None);
+            if (opened > 0)
+                logger.LogInformation("Ticket {TicketId} left Open for an agent.", ticketId);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to auto-resolve ticket {TicketId}.", ticketId);
+            logger.LogError(ex, "Failed to open ticket {TicketId}; it is stuck in Processing.", ticketId);
         }
-
-        if (resolved)
-            return;
-        // Not answerable by the AI (or it failed): hand it to the agents.
-        var released = await db.Tickets
-            .Where(t => t.Id == ticketId && t.Status == TicketStatuses.Processing)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(t => t.Status, TicketStatuses.Open)
-                .SetProperty(t => t.UpdatedAt, DateTime.UtcNow), cancellationToken);
-        if (released > 0)
-            logger.LogInformation("Ticket {TicketId} left Open for an agent.", ticketId);
     }
 
     // Returns true when the ticket was answered from the knowledge base and marked Resolved.
