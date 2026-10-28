@@ -129,6 +129,8 @@ public class TicketAutoResolveWorker(
             .Where(t => t.Id == ticket.Id && t.Status == TicketStatuses.Processing)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(t => t.Status, TicketStatuses.Resolved)
+                .SetProperty(t => t.ResolvedAt, now)
+                .SetProperty(t => t.ResolvedByAi, true)
                 .SetProperty(t => t.UpdatedAt, now), cancellationToken);
         if (updated == 0)
             return false;

@@ -51,3 +51,17 @@ export type TicketDetailData = {
   assignee: TicketAssigneeData | null
   messages: TicketMessage[]
 }
+
+export type DashboardStats = {
+  totalTickets: number
+  openTickets: number
+  resolvedByAi: number
+  // null until a ticket has been resolved.
+  averageResolutionSeconds: number | null
+}
+
+// Tickets created on one day (YYYY-MM-DD, in the viewer's time zone).
+export type TicketsPerDay = {
+  date: string
+  count: number
+}

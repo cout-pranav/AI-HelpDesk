@@ -16,5 +16,9 @@ public class Ticket
     public User? Assignee { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    // When the ticket was resolved or closed; null while it is unresolved. Cleared when it is reopened.
+    public DateTime? ResolvedAt { get; set; }
+    // True when the auto-resolver answered it from the knowledge base; cleared when it is reopened.
+    public bool ResolvedByAi { get; set; }
     public List<TicketMessage> Messages { get; set; } = [];
 }

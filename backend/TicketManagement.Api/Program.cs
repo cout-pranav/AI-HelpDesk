@@ -99,5 +99,6 @@ app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapInboundEmailEndpoints();
 app.MapTicketEndpoints();
+app.MapDashboardEndpoints();
 
 app.Run();

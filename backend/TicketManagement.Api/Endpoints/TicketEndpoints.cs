@@ -207,8 +207,21 @@ public static class TicketEndpoints
 
             if (ticket.Status != status)
             {
+                var now = DateTime.UtcNow;
+                // Reopening undoes the resolution, including the AI's. Moving between Resolved and
+                // Closed keeps the original resolution time.
+                if (status == TicketStatuses.Open)
+                {
+                    ticket.ResolvedAt = null;
+                    ticket.ResolvedByAi = false;
+                }
+                else if (ticket.ResolvedAt is null)
+                {
+                    ticket.ResolvedAt = now;
+                    ticket.ResolvedByAi = false;
+                }
                 ticket.Status = status;
-                ticket.UpdatedAt = DateTime.UtcNow;
+                ticket.UpdatedAt = now;
                 await db.SaveChangesAsync();
             }
 
@@ -285,7 +298,8 @@ public static class TicketEndpoints
     }
 
     // Tickets the AI is still processing (New/Processing) are internal: every endpoint here treats
-    // them as not found until the worker resolves or opens them.
+    // them as not found until the worker resolves or opens them. The dashboard's SQL functions
+    // (migration AddDashboardFunctions) apply the same rule; keep them in sync.
     private static IQueryable<Ticket> VisibleTickets(TicketManagementDbContext db) =>
         db.Tickets.Where(t => t.Status != TicketStatuses.New && t.Status != TicketStatuses.Processing);
 

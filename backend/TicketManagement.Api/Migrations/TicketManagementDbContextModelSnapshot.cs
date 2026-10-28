@@ -70,6 +70,12 @@ namespace TicketManagement.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("ResolvedByAi")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasMaxLength(20)

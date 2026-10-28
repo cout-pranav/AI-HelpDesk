@@ -13,6 +13,10 @@ export function AppLayout() {
           </Link>
           
           <nav className="flex items-center gap-4 text-sm">
+            {/* `end`, or "/" would count as active on every page. */}
+            <NavLink to="/" end>
+              Dashboard
+            </NavLink>
             <NavLink to="/tickets">Tickets</NavLink>
             {user?.role === 'Admin' && <NavLink to="/users">Users</NavLink>}
           </nav>
