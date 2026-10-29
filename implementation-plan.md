@@ -49,7 +49,7 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - Error handling/fallback when AI call fails (ticket still usable without AI output)
 
 ## Phase 4 — Outbound Email
-- Brevo (or SendGrid) API client for sending replies
+- SendGrid API client for sending replies
 - Wire "send reply" action on ticket detail to actually email the submitter
 - Track sent-reply status/history on the ticket
 - Handle send failures (retry/log, don't lose the reply content)
@@ -68,7 +68,7 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - README with setup/run instructions
 
 ## Deferred / Explicitly Out of Scope for v1
-- Provider-specific email ingestion (Brevo/SendGrid inbound webhook adapter or IMAP polling) — the provider-agnostic `POST /api/inbound-email` endpoint already turns each received email into a new ticket; a real mailbox still has to be wired to it
+- Provider-specific email ingestion (SendGrid Inbound Parse webhook adapter) — the provider-agnostic `POST /api/inbound-email` endpoint already turns each received email into a new ticket; a real mailbox still has to be wired to it
 - Threading customer replies onto existing tickets (every inbound email currently creates a new ticket)
 - Storing email attachments (only their file names are kept)
 - Auto-send without agent approval

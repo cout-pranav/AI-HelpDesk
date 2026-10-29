@@ -112,7 +112,7 @@ Two-project full-stack layout, no shared package boundary:
 
 ## Using Context7
 
-Use the Context7 MCP tools to fetch current documentation whenever working with a library, framework, SDK, API, CLI tool, or cloud service in this repo (ASP.NET Core, EF Core, React, Vite, React Router, Brevo/SendGrid, Claude/Gemini APIs, etc.) — including for setup, config, version-specific API syntax, and migration questions. Prefer this over relying on training data or web search for library docs, since API surfaces (especially fast-moving ones like EF Core and ASP.NET Core minimal APIs) change between versions.
+Use the Context7 MCP tools to fetch current documentation whenever working with a library, framework, SDK, API, CLI tool, or cloud service in this repo (ASP.NET Core, EF Core, React, Vite, React Router, SendGrid, Claude/Gemini APIs, etc.) — including for setup, config, version-specific API syntax, and migration questions. Prefer this over relying on training data or web search for library docs, since API surfaces (especially fast-moving ones like EF Core and ASP.NET Core minimal APIs) change between versions.
 
 1. Call `resolve-library-id` with the library name first, unless an exact `/org/project` ID is already known.
 2. Pick the best-matching library ID (exact name match, relevant description, higher snippet count, High/Medium source reputation, higher benchmark score).

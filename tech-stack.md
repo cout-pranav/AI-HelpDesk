@@ -20,9 +20,10 @@
 - Anthropic Claude API (preferred) or Google Gemini API (free-tier alternative) for ticket classification, summaries, and suggested replies
 - Called via a thin service abstraction (e.g. `IAiService`) using plain `HttpClient`, so the provider can be swapped without touching calling code
 
-## Outbound Email
-- Brevo (preferred) — REST API, 300 emails/day free tier, called via `HttpClient`
-- SendGrid (alternative) — 100 emails/day free tier, official `SendGrid.CSharp` NuGet package available if a typed client is preferred over raw HTTP
+## Email (send and receive)
+- SendGrid is the single provider for both directions
+- Outbound: SendGrid Mail Send API, via the official `SendGrid` NuGet package or `HttpClient`, behind a thin service abstraction so the provider stays swappable
+- Inbound: SendGrid Inbound Parse webhook posts each received email to the API, where an adapter maps it onto the provider-agnostic `POST /api/inbound-email` shape
 
 ## Containerization
 - Docker — separate containers for API and SQL Server, `docker-compose` for local dev
