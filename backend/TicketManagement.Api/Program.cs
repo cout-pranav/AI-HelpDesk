@@ -105,7 +105,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// The built frontend (wwwroot, copied in by the Dockerfile or the Azure deploy workflow) is served from the same origin as the
+// The built frontend (wwwroot, copied in by the Dockerfile or a publish step) is served from the same origin as the
 // API. Vite's hashed /assets files never change, so they're cached for good; everything else
 // (index.html) is revalidated so a new deploy is picked up. Without a wwwroot (local dev, E2E)
 // this does nothing and the frontend runs on the Vite dev server.

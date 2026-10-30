@@ -41,11 +41,6 @@ docker compose up --build   # app at http://localhost:${APP_PORT:-8080}, plus SQ
 docker compose down         # stop; add -v to also delete the database volume
 ```
 
-### Deploy (Azure App Service)
-`.github/workflows/deploy-azure.yml` deploys on every push to `main` (or a manual run). It lints, tests and builds the frontend with an empty `VITE_API_BASE_URL`, publishes the API, copies `frontend/dist` into the publish folder's `wwwroot` and zip-deploys it. GitHub settings:
-- Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (OIDC federated credential for `repo:cout-pranav/AI-HelpDesk:ref:refs/heads/main`, role Website Contributor on the Web App) and optional `VITE_SENTRY_DSN`.
-- Variable: `AZURE_WEBAPP_NAME`.
-
 ### Frontend (`frontend`)
 ```
 npm install
@@ -142,7 +137,7 @@ Two-project full-stack layout, no shared package boundary:
   - The ticket thread is a conversation: customer messages are left-aligned mint bubbles and replies are right-aligned pine bubbles.
 - Routing uses React Router v7 in declarative mode (imported from `react-router-dom`): `<BrowserRouter>` wraps `AuthProvider` in `main.tsx`, and the route tree lives in `App.tsx`. Protected routes nest under the `auth/RequireAuth.tsx` layout route (redirects to `/login` when there's no user, so `logout()` needs no explicit navigate), then `components/AppLayout.tsx` (nav bar + `<Outlet />`). Role-gated pages nest further under `<RequireRole role="Admin" />` (`auth/RequireRole.tsx`), which redirects users without that role to `/` (e.g. the admin-only `/users` page). This only hides UI; the matching backend endpoints must still enforce the role. Pages go in `src/pages/`.
 - Local dev runs both projects directly against SQL Server LocalDB (`(localdb)\mssqllocaldb`) on the host. Docker is the production-like setup: the root `Dockerfile` builds one image in which the API serves the built frontend from `wwwroot` on the same origin (`UseStaticFiles` + `MapFallbackToFile("index.html")` in `Program.cs`; unknown `/api/*` paths stay 404). The frontend is built with an empty `VITE_API_BASE_URL`, so it calls relative `/api`. `docker-compose.yml` runs it in `Production` against a SQL Server 2022 container (LocalDB isn't reachable from Docker), taking secrets from the root `.env` (`.env.example` lists them). `.dockerignore` keeps `.env.local` files out of the build, because `VITE_*` values end up in the public bundle.
-- Hosted deploy: a Linux .NET 10 Azure App Service Web App (code deploy, not the Docker image; see Deploy above) against an Azure SQL Database. Web App settings:
+- Hosted deploy: a Linux .NET 10 Azure App Service Web App against an Azure SQL Database. Web App settings:
   - Plan B1 or higher with Always On, so the background workers keep running between requests (Free/Shared tiers can't).
   - One instance, no autoscale, because startup migrations, the pending-email resend and the in-memory queues assume one instance.
   - Health check path `/api/health`, HTTPS Only.
