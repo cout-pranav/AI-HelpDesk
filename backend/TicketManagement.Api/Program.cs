@@ -15,6 +15,12 @@ using TicketManagement.Api.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Error reporting: unhandled exceptions and LogError/LogCritical (including the background workers')
+// go to Sentry. Options come from the "Sentry" section; the SDK refuses to start without a DSN, so
+// it is only enabled when Sentry:Dsn (or SENTRY_DSN) is set, which keeps Testing/E2E runs out of it.
+if (!string.IsNullOrEmpty(builder.Configuration["Sentry:Dsn"] ?? builder.Configuration["SENTRY_DSN"]))
+    builder.WebHost.UseSentry();
+
 // Add services to the container.
 
 const string FrontendCorsPolicy = "FrontendCorsPolicy";

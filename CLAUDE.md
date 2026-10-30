@@ -29,6 +29,9 @@ dotnet user-secrets set "Gemini:ApiKey" "<key>"
 
 # SendGrid key for emailing replies to submitters (Mail Send permission); SendGrid__ApiKey outside Development.
 dotnet user-secrets set "SendGrid:ApiKey" "<key>"
+
+# Sentry DSN for backend error reporting (optional; Sentry is off without it); Sentry__Dsn outside Development.
+dotnet user-secrets set "Sentry:Dsn" "<dsn>"
 ```
 
 ### Frontend (`frontend`)
@@ -99,6 +102,11 @@ Two-project full-stack layout, no shared package boundary:
   - `POST /api/tickets/{id}/replies/{messageId}/resend` (any signed-in user) moves a `failed` reply back to `pending` with a conditional update and enqueues it; 409 if the reply isn't `failed`, 404 if it isn't an outbound message on that ticket, 503 if SendGrid isn't configured. Returns the updated detail.
   - The detail page's query (`tickets/TicketDetail.tsx`) refetches every 3 s while any message is `pending`.
   - Customer replies to these emails go to `FromEmail`, which comes back in through Inbound Parse as a new ticket (threading is deferred).
+
+### Error reporting (Sentry)
+- Both projects report errors to Sentry only when a DSN is configured, so tests, Testing and E2E runs never report.
+- Backend: `Sentry.AspNetCore`, enabled in `Program.cs` with `builder.WebHost.UseSentry()` only when `Sentry:Dsn` (or `SENTRY_DSN`) is set. The SDK refuses to start without a DSN, so don't call it unconditionally. Options are in the `Sentry` section of `appsettings.json`. It captures unhandled request exceptions and every `LogError`/`LogCritical` (`MinimumEventLevel: Error`), so the background workers' failures are reported through their existing `logger.LogError` calls. Log at `Warning` for expected, handled failures that shouldn't become Sentry issues. `SendDefaultPii` is false and `MaxRequestBodySize` is `None`, because request bodies carry customers' emails and messages.
+- Frontend: `@sentry/react` v11, initialized by `initSentry()` (`src/lib/sentry.ts`) from `VITE_SENTRY_DSN` (in `.env.local`), with `environment` = the Vite mode. v11 collects request bodies, cookies, user info and GenAI prompts by default, so `dataCollection` turns those off explicitly (the Polish/Summarize buttons send ticket content to Gemini). Keep it that way when adding options. `main.tsx` passes `Sentry.reactErrorHandler()` to `createRoot`'s `onUncaughtError`/`onCaughtError`/`onRecoverableError` and wraps the app in `Sentry.ErrorBoundary`, whose fallback is `components/AppErrorFallback.tsx` (a Reload button). Handled API errors (shown with `ErrorAlert`) aren't reported from the frontend; the backend reports its own failures. Source maps aren't uploaded, so frontend stack traces show minified code in production builds.
 
 ### Configuration and secrets
 - Environments come from `ASPNETCORE_ENVIRONMENT`: `Development` (launch profiles `http`/`https`), `Testing` (launch profile `e2e`, Playwright only), and `Production` (deployed, or the variable unset). Environment-dependent behaviour: OpenAPI is mapped only in Development, the database is dropped and recreated on startup only in Testing, and login rate limiting runs only in Production.
