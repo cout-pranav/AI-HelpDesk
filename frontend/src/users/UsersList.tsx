@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { ErrorAlert } from '@/components/ErrorAlert'
+import { tablePanel } from '@/components/tablePanel'
+import { UserAvatar } from '@/components/UserAvatar'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -35,36 +37,43 @@ export function UsersList() {
   }
 
   return (
-    <Table>
-      <TableCaption className="sr-only">Users</TableCaption>
-      <UsersTableHeader />
-      <TableBody>
-        {users.data.map((user) => (
-          <TableRow key={user.id}>
-            <TableCell className="font-medium">{user.displayName}</TableCell>
-            <TableCell>{user.email}</TableCell>
-            <TableCell>
-              <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>{user.role}</Badge>
-            </TableCell>
-            <TableCell>
-              <Badge variant={user.isActive ? 'outline' : 'destructive'}>
-                {user.isActive ? 'Active' : 'Inactive'}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {new Date(user.createdAt).toLocaleDateString()}
-            </TableCell>
-            <TableCell>
-              <div className="flex gap-1">
-                <EditUserDialog user={user} />
-                {/* Admins can't be deleted (the API refuses too). */}
-                {user.role !== 'Admin' && <DeleteUserDialog user={user} />}
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className={tablePanel}>
+      <Table>
+        <TableCaption className="sr-only">Users</TableCaption>
+        <UsersTableHeader />
+        <TableBody>
+          {users.data.map((user) => (
+            <TableRow key={user.id}>
+              <TableCell>
+                <span className="flex items-center gap-2.5 font-medium">
+                  <UserAvatar name={user.displayName} />
+                  {user.displayName}
+                </span>
+              </TableCell>
+              <TableCell className="text-muted-foreground">{user.email}</TableCell>
+              <TableCell>
+                <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>{user.role}</Badge>
+              </TableCell>
+              <TableCell>
+                <Badge variant={user.isActive ? 'outline' : 'destructive'}>
+                  {user.isActive ? 'Active' : 'Inactive'}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {new Date(user.createdAt).toLocaleDateString()}
+              </TableCell>
+              <TableCell>
+                <div className="flex gap-1">
+                  <EditUserDialog user={user} />
+                  {/* Admins can't be deleted (the API refuses too). */}
+                  {user.role !== 'Admin' && <DeleteUserDialog user={user} />}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }
 
@@ -90,33 +99,35 @@ const SKELETON_ROWS = 5
 // Mirrors the real table's columns so the layout doesn't shift when data arrives.
 function UsersListSkeleton() {
   return (
-    <Table aria-busy="true">
-      <TableCaption className="sr-only">Loading users…</TableCaption>
-      <UsersTableHeader />
-      <TableBody>
-        {Array.from({ length: SKELETON_ROWS }, (_, i) => (
-          <TableRow key={i} className="hover:bg-transparent">
-            <TableCell>
-              <Skeleton className="h-4 w-32" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-48" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-5 w-14 rounded-4xl" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-5 w-16 rounded-4xl" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-20" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="ml-auto h-7 w-15 rounded-md" />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className={tablePanel}>
+      <Table aria-busy="true">
+        <TableCaption className="sr-only">Loading users…</TableCaption>
+        <UsersTableHeader />
+        <TableBody>
+          {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+            <TableRow key={i} className="hover:bg-transparent">
+              <TableCell>
+                <Skeleton className="h-4 w-32" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-48" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-5 w-14 rounded-4xl" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-5 w-16 rounded-4xl" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-20" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="ml-auto h-7 w-15 rounded-md" />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

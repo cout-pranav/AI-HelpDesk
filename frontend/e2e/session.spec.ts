@@ -1,9 +1,9 @@
 /// <reference lib="dom" />
 import { expect, test } from '@playwright/test'
-import { apiLogin, loginAsAdmin, readToken, seedToken, seedTokenOnce } from './helpers/auth.ts'
+import { apiLogin, loginAsAdmin, readToken, seedToken, seedTokenOnce, welcomeHeadingName } from './helpers/auth.ts'
 import { e2eAdmin } from './testUsers.ts'
 
-const welcomeHeading = { name: `Welcome, ${e2eAdmin.displayName}` }
+const welcomeHeading = { name: welcomeHeadingName(e2eAdmin.displayName) }
 
 test.describe('session', () => {
   test('token persists across a reload', async ({ page, request }) => {
@@ -59,7 +59,7 @@ test.describe('session', () => {
     await page.route('**/api/health', (route) =>
       route.fulfill({ status: 401, contentType: 'application/json', body: '{}' }),
     )
-    await page.getByRole('link', { name: 'Ticket Management' }).click()
+    await page.getByRole('link', { name: 'Support desk' }).click()
 
     await expect(page).toHaveURL(/\/login$/)
     await expect.poll(() => readToken(page)).toBeNull()

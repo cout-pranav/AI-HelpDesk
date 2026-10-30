@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { loginAsAdmin } from './helpers/auth.ts'
+import { loginAsAdmin, welcomeHeadingName } from './helpers/auth.ts'
 import { apiCreateUser, uniqueUser } from './helpers/users.ts'
 import { e2eAdmin } from './testUsers.ts'
 
@@ -51,7 +51,7 @@ test.describe('user management (admin)', () => {
     await page.getByLabel('Password').fill(user.password)
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page).toHaveURL('/')
-    await expect(page.getByRole('heading', { name: `Welcome, ${user.displayName}` })).toBeVisible()
+    await expect(page.getByRole('heading', { name: welcomeHeadingName(user.displayName) })).toBeVisible()
   })
 
   test('admin edits an agent and the list shows the new details after a reload', async ({

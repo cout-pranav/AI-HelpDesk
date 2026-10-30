@@ -56,7 +56,7 @@ export function TicketReplyForm({ ticket, agentName }: { ticket: TicketDetailDat
           <Textarea
             id="reply-body"
             rows={5}
-            className="min-h-28"
+            className="min-h-28 bg-background dark:bg-background"
             placeholder="Write a reply to the customer…"
             aria-invalid={errors.body ? true : undefined}
             {...register('body')}
@@ -67,10 +67,10 @@ export function TicketReplyForm({ ticket, agentName }: { ticket: TicketDetailDat
         {polish.isError && (
           <ErrorAlert>{errorMessage(polish.error, 'Could not polish the reply.')}</ErrorAlert>
         )}
-        <div className="flex gap-2">
+        <div className="flex justify-end gap-2">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             disabled={!hasDraft || polish.isPending || addReply.isPending}
             onClick={onPolish}
           >

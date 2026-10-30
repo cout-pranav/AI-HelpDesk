@@ -8,14 +8,14 @@ export function TicketDetailSkeleton() {
     <div aria-busy="true" aria-label="Loading ticket" className={ticketDetailColumns}>
       <div>
         <Skeleton className="mb-2 h-4 w-12" />
-        <Skeleton className="mb-4 h-8 w-96 max-w-full" />
+        <Skeleton className="mb-4 h-10 w-96 max-w-full" />
         <div className="mb-6 grid gap-2">
           <Skeleton className="h-4 w-64" />
           <Skeleton className="h-4 w-48" />
         </div>
-        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-32 w-4/5 rounded-2xl" />
       </div>
-      <Skeleton className="h-56 w-full rounded-xl" />
+      <Skeleton className="h-56 w-full rounded-2xl" />
     </div>
   )
 }

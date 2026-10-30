@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { loginAsAdmin } from './helpers/auth.ts'
+import { loginAsAdmin, welcomeHeadingName } from './helpers/auth.ts'
 import { e2eAdmin } from './testUsers.ts'
 
 test.describe('unauthenticated access', () => {
@@ -28,15 +28,16 @@ test.describe('authenticated admin', () => {
     await page.goto('/does/not/exist')
 
     await expect(page).toHaveURL('/')
-    await expect(page.getByRole('heading', { name: `Welcome, ${e2eAdmin.displayName}` })).toBeVisible()
+    await expect(page.getByRole('heading', { name: welcomeHeadingName(e2eAdmin.displayName) })).toBeVisible()
   })
 
   test('header shows the app link, user info and the Users nav link', async ({ page }) => {
     await page.goto('/')
 
-    await expect(page.getByRole('link', { name: 'Ticket Management' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Support desk' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Users' })).toBeVisible()
-    await expect(page.getByText(`${e2eAdmin.displayName} (Admin)`)).toBeVisible()
+    await expect(page.getByText(e2eAdmin.displayName, { exact: true })).toBeVisible()
+    await expect(page.getByText('Admin', { exact: true })).toBeVisible()
   })
 
   test('Users nav link opens the users page and the home link returns', async ({ page }) => {
@@ -46,7 +47,7 @@ test.describe('authenticated admin', () => {
     await expect(page).toHaveURL(/\/users$/)
     await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible()
 
-    await page.getByRole('link', { name: 'Ticket Management' }).click()
+    await page.getByRole('link', { name: 'Support desk' }).click()
     await expect(page).toHaveURL('/')
   })
 
@@ -60,13 +61,14 @@ test.describe('authenticated admin', () => {
     await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible()
   })
 
-  test('home page shows backend status ok', async ({ page }) => {
+  // FIXME: the redesign removed the 'Backend status' text from the app; no UI shows /api/health any more.
+  test.fixme('home page shows backend status ok', async ({ page }) => {
     await page.goto('/')
 
     await expect(page.getByText('Backend status: ok')).toBeVisible()
   })
 
-  test('home page shows backend status error when the health check fails', async ({ page }) => {
+  test.fixme('home page shows backend status error when the health check fails', async ({ page }) => {
     await page.route('**/api/health', (route) => route.fulfill({ status: 400, body: '' }))
 
     await page.goto('/')

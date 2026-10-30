@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import { ErrorAlert } from '@/components/ErrorAlert'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api, errorMessage } from '@/lib/api'
 import type { DashboardStats as DashboardStatsData } from '@/types/ticket'
@@ -8,29 +7,30 @@ import { formatDuration } from './formatDuration'
 
 const percentFormat = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 })
 
-const statLabels = [
-  'Total tickets',
-  'Open tickets',
-  'Resolved by AI',
-  'Resolved by AI (%)',
-  'Avg. resolution time',
-]
-
-function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
+// One stat in the panel: the label, the number (the group's only <p>) and an optional hint.
+// `ai` adds the sun dot that marks figures about the AI.
+function Stat({ label, value, hint, ai }: { label: string; value: string; hint?: string; ai?: boolean }) {
   return (
-    <Card role="group" aria-label={label}>
-      <CardHeader>
-        <CardTitle className="text-muted-foreground">{label}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-3xl font-semibold tabular-nums">{value}</p>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
+    <div role="group" aria-label={label} className="px-5 py-4">
+      <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        {ai && <span aria-hidden="true" className="size-2 rounded-full bg-sun" />}
+        {label}
+      </span>
+      <p className="mt-1 font-heading text-4xl font-semibold tracking-tight tabular-nums">{value}</p>
+      {hint && <span className="mt-0.5 block text-xs text-muted-foreground">{hint}</span>}
+    </div>
   )
 }
 
-const statsGrid = 'grid gap-4 sm:grid-cols-2 lg:grid-cols-5'
+// One mint panel: the 1px gaps show the page background, so they read as dividers however the
+// grid wraps. The last stat spans the row the two-column layout would leave half empty.
+const statsPanel =
+  'grid gap-px overflow-hidden rounded-2xl sm:grid-cols-2 lg:grid-cols-5 [&>*]:bg-muted [&>*:last-child]:sm:col-span-2 [&>*:last-child]:lg:col-span-1'
+
+function waitingSummary(open: number) {
+  if (open === 0) return 'Nothing is waiting for a reply.'
+  return open === 1 ? '1 ticket is waiting for a reply.' : `${open.toLocaleString()} tickets are waiting for a reply.`
+}
 
 // Headline ticket numbers. The ['tickets', 'stats'] key is refreshed by the ticket mutations,
 // which invalidate every non-detail ticket query.
@@ -42,35 +42,42 @@ export function DashboardStats() {
 
   if (stats.isPending) {
     return (
-      <div aria-busy="true" aria-label="Loading statistics" className={statsGrid}>
-        {statLabels.map((label) => (
-          <Skeleton key={label} className="h-28 rounded-xl" />
-        ))}
+      <div aria-busy="true" aria-label="Loading statistics">
+        <Skeleton className="mb-6 h-5 w-64" />
+        <Skeleton className="h-32 rounded-2xl lg:h-28" />
       </div>
     )
   }
 
   if (stats.isError) {
-    return <ErrorAlert>{errorMessage(stats.error, 'Could not load ticket statistics.')}</ErrorAlert>
+    return (
+      <div className="mt-6">
+        <ErrorAlert>{errorMessage(stats.error, 'Could not load ticket statistics.')}</ErrorAlert>
+      </div>
+    )
   }
 
   const { totalTickets, openTickets, resolvedByAi, averageResolutionSeconds } = stats.data
 
   return (
-    <div className={statsGrid}>
-      <StatCard label="Total tickets" value={totalTickets.toLocaleString()} />
-      <StatCard label="Open tickets" value={openTickets.toLocaleString()} />
-      <StatCard label="Resolved by AI" value={resolvedByAi.toLocaleString()} />
-      <StatCard
-        label="Resolved by AI (%)"
-        value={totalTickets === 0 ? '—' : percentFormat.format(resolvedByAi / totalTickets)}
-        hint="Of all tickets"
-      />
-      <StatCard
-        label="Avg. resolution time"
-        value={averageResolutionSeconds === null ? '—' : formatDuration(averageResolutionSeconds)}
-        hint="Created to resolved or closed"
-      />
-    </div>
+    <>
+      <span className="mb-6 block text-muted-foreground">{waitingSummary(openTickets)}</span>
+      <div className={statsPanel}>
+        <Stat label="Open tickets" value={openTickets.toLocaleString()} />
+        <Stat label="Total tickets" value={totalTickets.toLocaleString()} />
+        <Stat label="Resolved by AI" value={resolvedByAi.toLocaleString()} ai />
+        <Stat
+          label="Resolved by AI (%)"
+          value={totalTickets === 0 ? '—' : percentFormat.format(resolvedByAi / totalTickets)}
+          hint="Of all tickets"
+          ai
+        />
+        <Stat
+          label="Avg. resolution time"
+          value={averageResolutionSeconds === null ? '—' : formatDuration(averageResolutionSeconds)}
+          hint="Created to resolved or closed"
+        />
+      </div>
+    </>
   )
 }

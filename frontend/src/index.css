@@ -1,13 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/figtree";
 
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
 @theme inline {
-    --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    /* Bricolage Grotesque for headings, the brand and big numbers; Figtree for everything else. */
+    --font-heading: 'Bricolage Grotesque Variable', sans-serif;
+    --font-sans: 'Figtree Variable', sans-serif;
+    /* Sun is reserved for AI: AI-resolved figures, the summary panel and AI markers. */
+    --color-sun: var(--sun);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,74 +52,77 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* "Calm studio": pine ink on white with mint surfaces; sun only marks AI. */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --background: #ffffff;
+    --foreground: #18231e;
+    --card: #ffffff;
+    --card-foreground: #18231e;
+    --popover: #ffffff;
+    --popover-foreground: #18231e;
+    --primary: #1f4d3a;
+    --primary-foreground: #f4faf6;
+    --secondary: #e8f2ec;
+    --secondary-foreground: #1f4d3a;
+    --muted: #e8f2ec;
+    --muted-foreground: #5e6e66;
+    --accent: #e8f2ec;
+    --accent-foreground: #1f4d3a;
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --border: #d5e2da;
+    --input: #c9d9cf;
+    --ring: #1f4d3a;
+    --sun: #e8b23a;
+    --chart-1: #1f4d3a;
+    --chart-2: #3f7a5f;
+    --chart-3: #6ea78a;
+    --chart-4: #a5cdb7;
+    --chart-5: #d2e7da;
+    --radius: 0.875rem;
+    --sidebar: #f4faf6;
+    --sidebar-foreground: #18231e;
+    --sidebar-primary: #1f4d3a;
+    --sidebar-primary-foreground: #f4faf6;
+    --sidebar-accent: #e8f2ec;
+    --sidebar-accent-foreground: #1f4d3a;
+    --sidebar-border: #d5e2da;
+    --sidebar-ring: #1f4d3a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-        --background: oklch(0.145 0 0);
-        --foreground: oklch(0.985 0 0);
-        --card: oklch(0.205 0 0);
-        --card-foreground: oklch(0.985 0 0);
-        --popover: oklch(0.205 0 0);
-        --popover-foreground: oklch(0.985 0 0);
-        --primary: oklch(0.922 0 0);
-        --primary-foreground: oklch(0.205 0 0);
-        --secondary: oklch(0.269 0 0);
-        --secondary-foreground: oklch(0.985 0 0);
-        --muted: oklch(0.269 0 0);
-        --muted-foreground: oklch(0.708 0 0);
-        --accent: oklch(0.269 0 0);
-        --accent-foreground: oklch(0.985 0 0);
+        --background: #0f1a15;
+        --foreground: #e6efe9;
+        --card: #16241d;
+        --card-foreground: #e6efe9;
+        --popover: #16241d;
+        --popover-foreground: #e6efe9;
+        --primary: #7fc4a2;
+        --primary-foreground: #0f1a15;
+        --secondary: #1e3329;
+        --secondary-foreground: #cfe6d9;
+        --muted: #1e3329;
+        --muted-foreground: #9db1a6;
+        --accent: #1e3329;
+        --accent-foreground: #cfe6d9;
         --destructive: oklch(0.704 0.191 22.216);
-        --border: oklch(1 0 0 / 10%);
-        --input: oklch(1 0 0 / 15%);
-        --ring: oklch(0.556 0 0);
-        --chart-1: oklch(0.87 0 0);
-        --chart-2: oklch(0.556 0 0);
-        --chart-3: oklch(0.439 0 0);
-        --chart-4: oklch(0.371 0 0);
-        --chart-5: oklch(0.269 0 0);
-        --sidebar: oklch(0.205 0 0);
-        --sidebar-foreground: oklch(0.985 0 0);
-        --sidebar-primary: oklch(0.488 0.243 264.376);
-        --sidebar-primary-foreground: oklch(0.985 0 0);
-        --sidebar-accent: oklch(0.269 0 0);
-        --sidebar-accent-foreground: oklch(0.985 0 0);
-        --sidebar-border: oklch(1 0 0 / 10%);
-        --sidebar-ring: oklch(0.556 0 0);
+        --border: #263d32;
+        --input: #31493d;
+        --ring: #7fc4a2;
+        --sun: #f0c45e;
+        --chart-1: #7fc4a2;
+        --chart-2: #5fa585;
+        --chart-3: #43846a;
+        --chart-4: #2e6350;
+        --chart-5: #1f4537;
+        --sidebar: #16241d;
+        --sidebar-foreground: #e6efe9;
+        --sidebar-primary: #7fc4a2;
+        --sidebar-primary-foreground: #0f1a15;
+        --sidebar-accent: #1e3329;
+        --sidebar-accent-foreground: #cfe6d9;
+        --sidebar-border: #263d32;
+        --sidebar-ring: #7fc4a2;
     }
 }
 
@@ -124,7 +131,7 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-[0.9375rem]/relaxed text-foreground antialiased;
     }
   html {
     @apply font-sans;
@@ -132,10 +139,10 @@
   /* Page and section headings; spacing stays on each heading. shadcn titles that render an h2
      (Dialog/AlertDialog) set their own size and weight, which win over these base styles. */
   h1 {
-    @apply text-2xl font-semibold;
+    @apply font-heading text-3xl font-semibold tracking-tight;
     }
   h2 {
-    @apply text-lg font-semibold;
+    @apply font-heading text-lg font-semibold tracking-tight;
     }
   /* Labels in description lists (e.g. the ticket detail fields) are muted next to their values. */
   dt {

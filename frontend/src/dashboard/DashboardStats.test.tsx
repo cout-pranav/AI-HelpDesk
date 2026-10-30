@@ -20,7 +20,7 @@ function respondWith(stats: DashboardStatsData) {
 }
 
 async function statValue(label: string) {
-  return within(await screen.findByRole('group', { name: label })).getByText(/./, { selector: 'p.text-3xl' })
+  return within(await screen.findByRole('group', { name: label })).getByText(/./, { selector: 'p' })
 }
 
 describe('DashboardStats', () => {
@@ -52,6 +52,20 @@ describe('DashboardStats', () => {
     expect(await statValue('Resolved by AI')).toHaveTextContent('300')
     expect(await statValue('Resolved by AI (%)')).toHaveTextContent('25%')
     expect(await statValue('Avg. resolution time')).toHaveTextContent('3h 5m')
+  })
+
+  it('says how many tickets are waiting for a reply', async () => {
+    respondWith({ totalTickets: 10, openTickets: 1, resolvedByAi: 0, averageResolutionSeconds: null })
+    renderWithQueryClient(<DashboardStats />)
+
+    expect(await screen.findByText('1 ticket is waiting for a reply.')).toBeInTheDocument()
+  })
+
+  it('says when nothing is waiting', async () => {
+    respondWith({ totalTickets: 10, openTickets: 0, resolvedByAi: 0, averageResolutionSeconds: null })
+    renderWithQueryClient(<DashboardStats />)
+
+    expect(await screen.findByText('Nothing is waiting for a reply.')).toBeInTheDocument()
   })
 
   it('shows a dash for the percentage and resolution time when there is nothing to measure', async () => {

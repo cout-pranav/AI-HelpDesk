@@ -1,5 +1,6 @@
 import { useAuth } from '@/auth/authContext'
 import { DashboardStats } from '@/dashboard/DashboardStats'
+import { greeting } from '@/dashboard/greeting'
 import { TicketsPerDayChart } from '@/dashboard/TicketsPerDayChart'
 
 export function HomePage() {
@@ -7,9 +8,11 @@ export function HomePage() {
 
   return (
     <>
-      <h1 className="mb-4">Welcome, {user?.displayName}</h1>
+      <h1 className="mb-1">
+        {greeting(new Date().getHours())}, {user?.displayName}
+      </h1>
       <DashboardStats />
-      <div className="mt-4">
+      <div className="mt-8">
         <TicketsPerDayChart />
       </div>
     </>

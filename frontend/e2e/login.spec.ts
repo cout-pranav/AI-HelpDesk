@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { loginAsAdmin, readToken } from './helpers/auth.ts'
+import { loginAsAdmin, readToken, welcomeHeadingName } from './helpers/auth.ts'
 import { e2eAdmin } from './testUsers.ts'
 
 async function submitLogin(page: Page, email: string, password: string) {
@@ -9,7 +9,7 @@ async function submitLogin(page: Page, email: string, password: string) {
 }
 
 function welcome(page: Page) {
-  return page.getByRole('heading', { name: `Welcome, ${e2eAdmin.displayName}` })
+  return page.getByRole('heading', { name: welcomeHeadingName(e2eAdmin.displayName) })
 }
 
 test.describe('login form', () => {
@@ -22,7 +22,8 @@ test.describe('login form', () => {
 
     await expect(page).toHaveURL('/')
     await expect(welcome(page)).toBeVisible()
-    await expect(page.getByText(`${e2eAdmin.displayName} (Admin)`)).toBeVisible()
+    await expect(page.getByText(e2eAdmin.displayName, { exact: true })).toBeVisible()
+    await expect(page.getByText('Admin', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
     expect(await readToken(page)).toBeTruthy()
   })

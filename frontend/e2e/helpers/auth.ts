@@ -59,3 +59,9 @@ export async function loginAsAdmin(page: Page, request: APIRequestContext) {
 export function readToken(page: Page) {
   return page.evaluate((key) => window.localStorage.getItem(key), TOKEN_KEY)
 }
+
+/** Dashboard h1 name: the greeting depends on the browser's local hour. */
+export function welcomeHeadingName(displayName: string) {
+  const escaped = displayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^Good (morning|afternoon|evening), ${escaped}$`)
+}

@@ -15,6 +15,8 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ErrorAlert } from '@/components/ErrorAlert'
+import { tablePanel } from '@/components/tablePanel'
+import { UserAvatar } from '@/components/UserAvatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -115,8 +117,17 @@ const columns = helper.columns([
     id: 'assignee',
     header: columnLabels.assignee,
     filterFn: filteredOnServer,
-    cell: (info) =>
-      info.getValue() ?? <span className="text-muted-foreground">Unassigned</span>,
+    cell: (info) => {
+      const name = info.getValue()
+      return name ? (
+        <span className="flex items-center gap-2 whitespace-nowrap">
+          <UserAvatar name={name} className="size-6 text-[0.625rem]" />
+          {name}
+        </span>
+      ) : (
+        <span className="text-muted-foreground">Unassigned</span>
+      )
+    },
   }),
   helper.accessor('createdAt', {
     header: columnLabels.createdAt,
@@ -330,50 +341,52 @@ export function TicketsList() {
   return (
     <>
       {toolbar}
-      <Table aria-busy={tickets.isPlaceholderData || undefined}>
-        <TableCaption className="sr-only">Tickets</TableCaption>
-        <TableHeader>
-          {table.getHeaderGroups().map((group) => (
-            <TableRow key={group.id}>
-              {group.headers.map((header) => {
-                const sorted = header.column.getIsSorted()
-                const SortIcon =
-                  sorted === 'asc' ? ArrowUp : sorted === 'desc' ? ArrowDown : ArrowUpDown
-                return (
-                  <TableHead
-                    key={header.id}
-                    className={header.column.id === 'id' ? 'w-0' : undefined}
-                    aria-sort={
-                      sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined
-                    }
-                  >
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="-ml-2.5"
-                      onClick={header.column.getToggleSortingHandler()}
+      <div className={tablePanel}>
+        <Table aria-busy={tickets.isPlaceholderData || undefined}>
+          <TableCaption className="sr-only">Tickets</TableCaption>
+          <TableHeader>
+            {table.getHeaderGroups().map((group) => (
+              <TableRow key={group.id}>
+                {group.headers.map((header) => {
+                  const sorted = header.column.getIsSorted()
+                  const SortIcon =
+                    sorted === 'asc' ? ArrowUp : sorted === 'desc' ? ArrowDown : ArrowUpDown
+                  return (
+                    <TableHead
+                      key={header.id}
+                      className={header.column.id === 'id' ? 'w-0' : undefined}
+                      aria-sort={
+                        sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined
+                      }
                     >
-                      <table.FlexRender header={header} />
-                      <SortIcon className={sorted ? undefined : 'text-muted-foreground'} />
-                    </Button>
-                  </TableHead>
-                )
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getAllCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  <table.FlexRender cell={cell} />
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="-ml-2.5"
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        <table.FlexRender header={header} />
+                        <SortIcon className={sorted ? undefined : 'text-muted-foreground'} />
+                      </Button>
+                    </TableHead>
+                  )
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getAllCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    <table.FlexRender cell={cell} />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
       <nav aria-label="Pagination" className="mt-4 flex items-center justify-between gap-4 text-sm">
         <span className="text-muted-foreground">
           Showing {first}–{last} of {totalCount}
@@ -409,44 +422,46 @@ const SKELETON_ROWS = 5
 // Mirrors the real table's columns so the layout doesn't shift when data arrives.
 function TicketsListSkeleton() {
   return (
-    <Table aria-busy="true">
-      <TableCaption className="sr-only">Loading tickets…</TableCaption>
-      <TableHeader>
-        <TableRow>
-          {Object.entries(columnLabels).map(([id, label]) => (
-            <TableHead key={id} className={id === 'id' ? 'w-0' : undefined}>
-              {label}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {Array.from({ length: SKELETON_ROWS }, (_, i) => (
-          <TableRow key={i} className="hover:bg-transparent">
-            <TableCell>
-              <Skeleton className="h-4 w-8" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-56" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-36" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-5 w-14 rounded-4xl" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-28" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-24" />
-            </TableCell>
-            <TableCell>
-              <Skeleton className="h-4 w-32" />
-            </TableCell>
+    <div className={tablePanel}>
+      <Table aria-busy="true">
+        <TableCaption className="sr-only">Loading tickets…</TableCaption>
+        <TableHeader>
+          <TableRow>
+            {Object.entries(columnLabels).map(([id, label]) => (
+              <TableHead key={id} className={id === 'id' ? 'w-0' : undefined}>
+                {label}
+              </TableHead>
+            ))}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+            <TableRow key={i} className="hover:bg-transparent">
+              <TableCell>
+                <Skeleton className="h-4 w-8" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-56" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-36" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-5 w-14 rounded-4xl" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-28" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-24" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-32" />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

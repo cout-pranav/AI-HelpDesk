@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { ErrorAlert } from '@/components/ErrorAlert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/lib/api'
@@ -48,47 +47,45 @@ export function LoginForm() {
     : null
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl">Sign in</CardTitle>
-        <CardDescription>Enter your email and password to access your tickets.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={onSubmit} noValidate>
-          <FieldGroup>
-            {error && (
-              <ErrorAlert>{error}</ErrorAlert>
-            )}
-            <Field data-invalid={errors.email ? true : undefined}>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                autoComplete="username"
-                aria-invalid={errors.email ? true : undefined}
-                {...register('email')}
-              />
-              <FieldError errors={[errors.email]} />
-            </Field>
-            <Field data-invalid={errors.password ? true : undefined}>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                aria-invalid={errors.password ? true : undefined}
-                {...register('password')}
-              />
-              <FieldError errors={[errors.password]} />
-            </Field>
-            <Button type="submit" className="w-full" disabled={login.isPending}>
-              {login.isPending && <Loader2 className="animate-spin" />}
-              {login.isPending ? 'Signing in…' : 'Sign in'}
-            </Button>
-          </FieldGroup>
-        </form>
-      </CardContent>
-    </Card>
+    <div>
+      <div className="mb-6">
+        <h1 className="mb-1">Sign in</h1>
+        <p className="text-muted-foreground">Enter your email and password to access your tickets.</p>
+      </div>
+      <form onSubmit={onSubmit} noValidate>
+        <FieldGroup>
+          {error && (
+            <ErrorAlert>{error}</ErrorAlert>
+          )}
+          <Field data-invalid={errors.email ? true : undefined}>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              autoComplete="username"
+              aria-invalid={errors.email ? true : undefined}
+              {...register('email')}
+            />
+            <FieldError errors={[errors.email]} />
+          </Field>
+          <Field data-invalid={errors.password ? true : undefined}>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              aria-invalid={errors.password ? true : undefined}
+              {...register('password')}
+            />
+            <FieldError errors={[errors.password]} />
+          </Field>
+          <Button type="submit" className="w-full" disabled={login.isPending}>
+            {login.isPending && <Loader2 className="animate-spin" />}
+            {login.isPending ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </FieldGroup>
+      </form>
+    </div>
   )
 }

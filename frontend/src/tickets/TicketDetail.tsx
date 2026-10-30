@@ -48,8 +48,9 @@ export function TicketDetail({
         <TicketSummary ticket={t} />
         <TicketThread ticket={t} />
 
-        <section aria-labelledby="ticket-reply" className="mt-8">
-          <h2 id="ticket-reply" className="mb-3">
+        {/* The composer is a mint panel at the foot of the conversation. */}
+        <section aria-labelledby="ticket-reply" className="mt-10 rounded-2xl bg-muted p-5">
+          <h2 id="ticket-reply" className="sr-only">
             Reply
           </h2>
           <TicketReplyForm ticket={t} agentName={agentName} />
