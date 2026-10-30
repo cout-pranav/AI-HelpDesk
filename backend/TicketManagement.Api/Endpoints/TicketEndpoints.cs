@@ -1,7 +1,9 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using TicketManagement.Api.Data;
+using TicketManagement.Api.Email;
 using TicketManagement.Api.Models;
 
 namespace TicketManagement.Api.Endpoints;
@@ -27,7 +29,9 @@ public record TicketMessageDto(
     string? SenderName,
     string Body,
     List<string> AttachmentNames,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    // A MessageDeliveryStatuses value for emailed replies, otherwise null.
+    string? DeliveryStatus);
 
 public record TicketAssigneeDto(int Id, string DisplayName, string Email);
 
@@ -252,10 +256,16 @@ public static class TicketEndpoints
             return Results.Ok(await LoadDetail(db, id));
         });
 
-        // Adds an agent's reply to the thread. It is only stored for now; emailing it to the submitter
-        // comes with outbound email. Returns the updated ticket.
+        // Adds an agent's reply to the thread and, when SendGrid is configured, queues it to be emailed
+        // to the submitter (ReplyEmailWorker); the response doesn't wait for the email. Returns the
+        // updated ticket.
         group.MapPost("/{id:int}/replies", async (
-            int id, CreateTicketReplyRequest request, HttpContext http, TicketManagementDbContext db) =>
+            int id,
+            CreateTicketReplyRequest request,
+            HttpContext http,
+            TicketManagementDbContext db,
+            IOptions<SendGridOptions> emailOptions,
+            ReplyEmailQueue emailQueue) =>
         {
             var body = request.Body?.Trim();
             if (string.IsNullOrEmpty(body) || body.Length > MaxReplyLength)
@@ -278,7 +288,7 @@ public static class TicketEndpoints
                 return Results.Unauthorized();
 
             var now = DateTime.UtcNow;
-            db.TicketMessages.Add(new TicketMessage
+            var reply = new TicketMessage
             {
                 TicketId = ticket.Id,
                 Direction = MessageDirections.Outbound,
@@ -287,11 +297,51 @@ public static class TicketEndpoints
                 SenderName = author.DisplayName,
                 Body = body,
                 CreatedAt = now,
-            });
+                DeliveryStatus = emailOptions.Value.IsConfigured ? MessageDeliveryStatuses.Pending : null,
+            };
+            db.TicketMessages.Add(reply);
             ticket.UpdatedAt = now;
             await db.SaveChangesAsync();
+            if (reply.DeliveryStatus is not null)
+                emailQueue.Enqueue(reply.Id);
 
             return Results.Created($"/api/tickets/{id}", await LoadDetail(db, id));
+        });
+
+        // Queues a reply whose email failed to be sent again. Returns the updated ticket.
+        group.MapPost("/{id:int}/replies/{messageId:int}/resend", async (
+            int id,
+            int messageId,
+            TicketManagementDbContext db,
+            IOptions<SendGridOptions> emailOptions,
+            ReplyEmailQueue emailQueue) =>
+        {
+            if (!emailOptions.Value.IsConfigured)
+                return Results.Problem("Email sending is not configured.",
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+
+            if (!await VisibleTickets(db).AnyAsync(t => t.Id == id))
+                return TicketNotFound();
+
+            // Conditional, so a reply that is already queued or sent is never emailed twice.
+            var requeued = await db.TicketMessages
+                .Where(m => m.Id == messageId
+                    && m.TicketId == id
+                    && m.DeliveryStatus == MessageDeliveryStatuses.Failed)
+                .ExecuteUpdateAsync(s => s.SetProperty(m => m.DeliveryStatus, MessageDeliveryStatuses.Pending));
+            if (requeued == 0)
+            {
+                var exists = await db.TicketMessages.AnyAsync(m => m.Id == messageId
+                    && m.TicketId == id
+                    && m.Direction == MessageDirections.Outbound);
+                return exists
+                    ? Results.Problem("Only a reply that failed to send can be resent.",
+                        statusCode: StatusCodes.Status409Conflict)
+                    : Results.Problem("Reply not found.", statusCode: StatusCodes.Status404NotFound);
+            }
+
+            emailQueue.Enqueue(messageId);
+            return Results.Ok(await LoadDetail(db, id));
         });
 
         return app;
@@ -337,7 +387,8 @@ public static class TicketEndpoints
                 m.SenderName,
                 m.Body,
                 m.AttachmentNames,
-                DateTime.SpecifyKind(m.CreatedAt, DateTimeKind.Utc))).ToList());
+                DateTime.SpecifyKind(m.CreatedAt, DateTimeKind.Utc),
+                m.DeliveryStatus)).ToList());
     }
 
     private const int MaxSearchLength = 200;

@@ -77,6 +77,11 @@ public class TicketManagementDbContext : DbContext
             message.Property(m => m.SenderName).HasMaxLength(100);
             message.Property(m => m.Body).IsRequired();
             message.Property(m => m.ExternalMessageId).HasMaxLength(500);
+            message.Property(m => m.DeliveryStatus).HasMaxLength(20);
+            message.Property(m => m.DeliveryError).HasMaxLength(500);
+            message.Property(m => m.ProviderMessageId).HasMaxLength(100);
+            // ReplyEmailWorker looks up Pending replies on startup.
+            message.HasIndex(m => m.DeliveryStatus).HasFilter("[DeliveryStatus] IS NOT NULL");
             // A redelivered email (same Message-ID) must not create a second ticket.
             message.HasIndex(m => m.ExternalMessageId).IsUnique().HasFilter("[ExternalMessageId] IS NOT NULL");
         });

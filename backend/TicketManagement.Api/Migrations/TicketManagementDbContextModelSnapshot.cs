@@ -136,6 +136,17 @@ namespace TicketManagement.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("DeliveryAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DeliveryError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("DeliveryStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("Direction")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -144,6 +155,10 @@ namespace TicketManagement.Api.Migrations
                     b.Property<string>("ExternalMessageId")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ProviderMessageId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("SenderEmail")
                         .IsRequired()
@@ -154,12 +169,18 @@ namespace TicketManagement.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("TicketId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("AuthorId");
+
+                    b.HasIndex("DeliveryStatus")
+                        .HasFilter("[DeliveryStatus] IS NOT NULL");
 
                     b.HasIndex("ExternalMessageId")
                         .IsUnique()

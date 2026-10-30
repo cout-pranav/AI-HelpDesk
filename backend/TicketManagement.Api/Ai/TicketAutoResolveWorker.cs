@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TicketManagement.Api.Data;
+using TicketManagement.Api.Email;
 using TicketManagement.Api.Models;
 
 namespace TicketManagement.Api.Ai;
@@ -16,6 +17,8 @@ public class TicketAutoResolveWorker(
     IServiceScopeFactory scopeFactory,
     IConfiguration config,
     IOptions<GeminiOptions> geminiOptions,
+    IOptions<SendGridOptions> emailOptions,
+    ReplyEmailQueue emailQueue,
     ILogger<TicketAutoResolveWorker> logger) : BackgroundService
 {
     private const string ReplyAsEmailConfigKey = "AutoResolve:ReplyAsEmail";
@@ -135,7 +138,7 @@ public class TicketAutoResolveWorker(
         if (updated == 0)
             return false;
 
-        db.TicketMessages.Add(new TicketMessage
+        var reply = new TicketMessage
         {
             TicketId = ticket.Id,
             Direction = MessageDirections.Outbound,
@@ -144,9 +147,14 @@ public class TicketAutoResolveWorker(
             SenderName = author.DisplayName,
             Body = resolution.Reply,
             CreatedAt = now,
-        });
+            // Emailed like a manual reply.
+            DeliveryStatus = emailOptions.Value.IsConfigured ? MessageDeliveryStatuses.Pending : null,
+        };
+        db.TicketMessages.Add(reply);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        if (reply.DeliveryStatus is not null)
+            emailQueue.Enqueue(reply.Id);
 
         logger.LogInformation("Auto-resolved ticket {TicketId} from the knowledge base, replying as user {UserId}.",
             ticket.Id, author.Id);

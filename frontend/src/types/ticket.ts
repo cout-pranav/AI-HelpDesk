@@ -36,7 +36,11 @@ export type TicketMessage = {
   body: string
   attachmentNames: string[]
   createdAt: string
+  // Whether a reply was emailed to the customer; null for customer messages and replies that aren't emailed.
+  deliveryStatus: MessageDeliveryStatus | null
 }
+
+export type MessageDeliveryStatus = 'pending' | 'sent' | 'failed'
 
 export type TicketDetailData = {
   id: number

@@ -20,6 +20,36 @@ X-Inbound-Email-Secret: 3656g4TeXG40Uh3Ttx_ymoBg1LmC1vNbtx6BPnIBczQ
 
 ###
 
+# Simulates SendGrid's Inbound Parse webhook (default parsed format). The secret goes in the query string.
+POST {{TicketManagement.Api_HostAddress}}/api/inbound-email/sendgrid?secret=3656g4TeXG40Uh3Ttx_ymoBg1LmC1vNbtx6BPnIBczQ
+Content-Type: multipart/form-data; boundary=sendgrid-boundary
+
+--sendgrid-boundary
+Content-Disposition: form-data; name="from"
+
+Jane Student <student@example.com>
+--sendgrid-boundary
+Content-Disposition: form-data; name="subject"
+
+Cannot log in
+--sendgrid-boundary
+Content-Disposition: form-data; name="text"
+
+Hi, I cannot log in to my account.
+--sendgrid-boundary
+Content-Disposition: form-data; name="headers"
+
+From: Jane Student <student@example.com>
+Message-ID: <example-sendgrid-1@mail.example.com>
+Subject: Cannot log in
+--sendgrid-boundary
+Content-Disposition: form-data; name="attachment-info"
+
+{"attachment1":{"filename":"screenshot.png","type":"image/png"}}
+--sendgrid-boundary--
+
+###
+
 # Adds an agent reply to ticket 1. Paste a token from POST /api/auth/login.
 POST {{TicketManagement.Api_HostAddress}}/api/tickets/1/replies
 Content-Type: application/json
@@ -28,5 +58,11 @@ Authorization: Bearer <token>
 {
   "body": "Thanks for reaching out. We have reset your password."
 }
+
+###
+
+# Re-queues reply 2 on ticket 1 after its email failed (409 unless it is "failed").
+POST {{TicketManagement.Api_HostAddress}}/api/tickets/1/replies/2/resend
+Authorization: Bearer <token>
 
 ###

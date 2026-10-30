@@ -2,9 +2,11 @@ import { Paperclip } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { TicketDetailData } from '@/types/ticket'
+import { ReplyDeliveryStatus } from './ReplyDeliveryStatus'
 import { formatDate } from './ticketDisplay'
 
-// The ticket's messages oldest first: the customer's emails and the agents' replies.
+// The ticket's messages oldest first: the customer's emails and the agents' replies, each reply
+// with whether it was emailed.
 export function TicketThread({ ticket }: { ticket: TicketDetailData }) {
   const { messages } = ticket
   return (
@@ -31,6 +33,7 @@ export function TicketThread({ ticket }: { ticket: TicketDetailData }) {
                     <CardTitle className="flex flex-wrap items-center gap-2">
                       {sender}
                       {isReply && <Badge variant="secondary">Reply</Badge>}
+                      {isReply && <ReplyDeliveryStatus ticketId={ticket.id} message={message} />}
                     </CardTitle>
                     <CardDescription>
                       {message.senderName && <>{message.senderEmail} · </>}

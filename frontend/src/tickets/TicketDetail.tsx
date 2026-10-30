@@ -10,6 +10,8 @@ import { TicketSummary } from './TicketSummary'
 import { TicketThread } from './TicketThread'
 import { ticketDetailColumns } from './ticketDisplay'
 
+const pendingEmailPollMs = 3000
+
 // canAssign shows an assignee picker instead of plain text (admins only; the API enforces it too).
 // agentName is the signed-in user's name, used to sign polished replies.
 export function TicketDetail({
@@ -24,6 +26,9 @@ export function TicketDetail({
   const ticket = useQuery({
     queryKey: ['tickets', 'detail', ticketId],
     queryFn: () => api.get<TicketDetailData>(`/api/tickets/${ticketId}`).then((r) => r.data),
+    // Replies are emailed in the background, so poll until none is still sending.
+    refetchInterval: (query) =>
+      query.state.data?.messages.some((m) => m.deliveryStatus === 'pending') ? pendingEmailPollMs : false,
   })
 
   if (ticket.isPending) {

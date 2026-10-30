@@ -22,4 +22,15 @@ public class TicketMessage
     // Attachments aren't stored yet; their names are kept so nothing is silently dropped.
     public List<string> AttachmentNames { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    // For replies, a MessageDeliveryStatuses value; null for customer messages and for replies that
+    // aren't emailed (sending not configured, or saved before outbound email existed).
+    public string? DeliveryStatus { get; set; }
+    // Send attempts so far, across resends.
+    public int DeliveryAttempts { get; set; }
+    // When SendGrid accepted the email.
+    public DateTime? SentAt { get; set; }
+    // The last send failure, for troubleshooting; cleared once the email is sent.
+    public string? DeliveryError { get; set; }
+    // SendGrid's X-Message-Id, to look the email up in SendGrid's activity feed.
+    public string? ProviderMessageId { get; set; }
 }

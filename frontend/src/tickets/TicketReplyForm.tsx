@@ -61,7 +61,7 @@ export function TicketReplyForm({ ticket, agentName }: { ticket: TicketDetailDat
             aria-invalid={errors.body ? true : undefined}
             {...register('body')}
           />
-          <FieldDescription>Replies are saved to the ticket. They aren't emailed to the customer yet.</FieldDescription>
+          <FieldDescription>Replies are saved to the ticket and emailed to {ticket.submitterEmail}.</FieldDescription>
           <FieldError errors={[errors.body]} />
         </Field>
         {polish.isError && (

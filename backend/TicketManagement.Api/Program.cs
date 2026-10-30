@@ -7,7 +7,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using TicketManagement.Api.Ai;
 using TicketManagement.Api.Auth;
+using SendGrid.Extensions.DependencyInjection;
 using TicketManagement.Api.Data;
+using TicketManagement.Api.Email;
 using TicketManagement.Api.Endpoints;
 using TicketManagement.Api.Models;
 
@@ -71,6 +73,15 @@ builder.Services.AddHostedService<TicketClassificationWorker>();
 builder.Services.AddSingleton<KnowledgeBase>();
 builder.Services.AddSingleton<TicketAutoResolveQueue>();
 builder.Services.AddHostedService<TicketAutoResolveWorker>();
+
+// Outbound email: replies are emailed to the submitter by ReplyEmailWorker through SendGrid. The
+// client is only resolved once SendGrid is configured, so a missing SendGrid:ApiKey doesn't break
+// startup; replies are then stored without being emailed.
+builder.Services.Configure<SendGridOptions>(builder.Configuration.GetSection(SendGridOptions.SectionName));
+builder.Services.AddSendGrid((sp, options) =>
+    options.ApiKey = sp.GetRequiredService<IOptions<SendGridOptions>>().Value.ApiKey);
+builder.Services.AddSingleton<ReplyEmailQueue>();
+builder.Services.AddHostedService<ReplyEmailWorker>();
 
 var app = builder.Build();
 

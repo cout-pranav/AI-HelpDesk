@@ -49,10 +49,11 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - Error handling/fallback when AI call fails (ticket still usable without AI output)
 
 ## Phase 4 — Outbound Email
-- SendGrid API client for sending replies
-- Wire "send reply" action on ticket detail to actually email the submitter
-- Track sent-reply status/history on the ticket
-- Handle send failures (retry/log, don't lose the reply content)
+- SendGrid Inbound Parse adapter (done): `POST /api/inbound-email/sendgrid?secret=…` maps SendGrid's webhook onto the inbound-email ticket creation
+- SendGrid API client for sending replies (done): `Email/ReplyEmailWorker.cs`, configured by `SendGrid:*`
+- Wire "send reply" action on ticket detail to actually email the submitter (done; auto-resolve replies are emailed too)
+- Track sent-reply status/history on the ticket (done): per-reply delivery status, attempts, sent time, SendGrid message id
+- Handle send failures (retry/log, don't lose the reply content) (done): automatic retries for transient errors, pending replies resent on restart, manual Resend for failed ones
 
 ## Phase 5 — Admin & Dashboard Polish
 - Admin user management UI (list/create/deactivate agents)
@@ -68,7 +69,6 @@ Assumptions used to break this down (see Open Questions in project-scope.md — 
 - README with setup/run instructions
 
 ## Deferred / Explicitly Out of Scope for v1
-- Provider-specific email ingestion (SendGrid Inbound Parse webhook adapter) — the provider-agnostic `POST /api/inbound-email` endpoint already turns each received email into a new ticket; a real mailbox still has to be wired to it
 - Threading customer replies onto existing tickets (every inbound email currently creates a new ticket)
 - Storing email attachments (only their file names are kept)
 - Auto-send without agent approval
