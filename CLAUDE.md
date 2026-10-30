@@ -34,6 +34,18 @@ dotnet user-secrets set "SendGrid:ApiKey" "<key>"
 dotnet user-secrets set "Sentry:Dsn" "<dsn>"
 ```
 
+### Docker (repo root)
+```
+cp .env.example .env        # fill in DB_PASSWORD, JWT_SIGNING_KEY, SEED_ADMIN_* (git-ignored)
+docker compose up --build   # app at http://localhost:${APP_PORT:-8080}, plus SQL Server in a container
+docker compose down         # stop; add -v to also delete the database volume
+```
+
+### Deploy (Azure App Service)
+`.github/workflows/deploy-azure.yml` deploys on every push to `main` (or a manual run). It lints, tests and builds the frontend with an empty `VITE_API_BASE_URL`, publishes the API, copies `frontend/dist` into the publish folder's `wwwroot` and zip-deploys it. GitHub settings:
+- Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (OIDC federated credential for `repo:cout-pranav/AI-HelpDesk:ref:refs/heads/main`, role Website Contributor on the Web App) and optional `VITE_SENTRY_DSN`.
+- Variable: `AZURE_WEBAPP_NAME`.
+
 ### Frontend (`frontend`)
 ```
 npm install
@@ -129,7 +141,15 @@ Two-project full-stack layout, no shared package boundary:
   - People are shown as `components/UserAvatar.tsx` beside their name. The avatar draws the initials (from `lib/initials.ts`) with CSS `content`, so they don't appear in the text of a table cell.
   - The ticket thread is a conversation: customer messages are left-aligned mint bubbles and replies are right-aligned pine bubbles.
 - Routing uses React Router v7 in declarative mode (imported from `react-router-dom`): `<BrowserRouter>` wraps `AuthProvider` in `main.tsx`, and the route tree lives in `App.tsx`. Protected routes nest under the `auth/RequireAuth.tsx` layout route (redirects to `/login` when there's no user, so `logout()` needs no explicit navigate), then `components/AppLayout.tsx` (nav bar + `<Outlet />`). Role-gated pages nest further under `<RequireRole role="Admin" />` (`auth/RequireRole.tsx`), which redirects users without that role to `/` (e.g. the admin-only `/users` page). This only hides UI; the matching backend endpoints must still enforce the role. Pages go in `src/pages/`.
-- Docker is deferred to a later phase; local dev currently runs both projects directly (no docker-compose yet), against SQL Server LocalDB (`(localdb)\mssqllocaldb`) on the host, not a container.
+- Local dev runs both projects directly against SQL Server LocalDB (`(localdb)\mssqllocaldb`) on the host. Docker is the production-like setup: the root `Dockerfile` builds one image in which the API serves the built frontend from `wwwroot` on the same origin (`UseStaticFiles` + `MapFallbackToFile("index.html")` in `Program.cs`; unknown `/api/*` paths stay 404). The frontend is built with an empty `VITE_API_BASE_URL`, so it calls relative `/api`. `docker-compose.yml` runs it in `Production` against a SQL Server 2022 container (LocalDB isn't reachable from Docker), taking secrets from the root `.env` (`.env.example` lists them). `.dockerignore` keeps `.env.local` files out of the build, because `VITE_*` values end up in the public bundle.
+- Hosted deploy: a Linux .NET 10 Azure App Service Web App (code deploy, not the Docker image; see Deploy above) against an Azure SQL Database. Web App settings:
+  - Plan B1 or higher with Always On, so the background workers keep running between requests (Free/Shared tiers can't).
+  - One instance, no autoscale, because startup migrations, the pending-email resend and the in-memory queues assume one instance.
+  - Health check path `/api/health`, HTTPS Only.
+  - App settings: `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__TicketManagementDb`, `Jwt__SigningKey`, `SeedAdmin__*`, `InboundEmail__Secret`, `Gemini__ApiKey`, `SendGrid__ApiKey`, `Sentry__Dsn` (same names as `docker-compose.yml`).
+  - `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` so login rate limiting sees the client IP from `X-Forwarded-For`. Set it only where the app is reachable solely through a proxy; compose publishes 8080 directly, so it stays off there.
+  - The Azure SQL firewall must allow the Web App, and SendGrid Inbound Parse points at `https://<app>/api/inbound-email/sendgrid?secret=...`.
+  - `UseSqlServer` has `EnableRetryOnFailure`, so any explicit transaction must run inside `db.Database.CreateExecutionStrategy().ExecuteAsync(...)`, as in `TicketAutoResolveWorker`.
 - A running backend locks `bin/Debug/.../TicketManagement.Api.exe`, so stop it before `dotnet build` / `dotnet run` or the build fails with MSB3027. (The E2E backend avoids this by building with `-p:OutDir=bin/e2e/`.)
 - Interim AI exception: the reply form's "Polish" button (`tickets/usePolishReply.ts` → `polishReply` in `src/lib/ai.ts`) calls Gemini straight from the browser via the Vercel AI SDK (`ai` + `@ai-sdk/google`), with the key in `VITE_GEMINI_API_KEY` (git-ignored `.env.local`). That key is public in the bundle, so this is local-demo only, and it's the one `mutationFn` that doesn't use `api`. It replaces the draft and never sends it, greets the submitter by first name ("Hello Jane,", or "Hello," without a name), adds emojis where the tone allows, and signs it "Best regards," plus the signed-in user's display name (`agentName`, passed down from `TicketDetailPage`). The "Summarize" button above the thread (`tickets/TicketSummary.tsx` → `tickets/useSummarizeTicket.ts` → `summarizeTicket` in `src/lib/ai.ts`) works the same way: a mutation, not a query, so each click regenerates the summary from the ticket's subject, status and messages, and nothing is stored. Tests mock `@/lib/ai`. Move it behind the backend `IAiService` in Phase 3.
 - Backend AI goes through `Ai/IAiService.cs`, implemented by `Ai/ChatAiService.cs` on Microsoft.Extensions.AI's `IChatClient`. `Program.cs` registers that client with `AddChatClient` as Gemini via Google's `Google.GenAI` SDK (`AsIChatClient(model)`), configured by `Gemini:ApiKey` (secret) and `Gemini:Model` (`Ai/GeminiOptions.cs`, default `gemini-3.5-flash`). Swapping providers means changing only that registration. Structured answers use `ChatResponseFormat.ForJsonSchema` with a schema built from the model constants (e.g. `TicketCategories.All`). Add new AI features as `IAiService` methods; don't call a provider SDK or `IChatClient` from endpoints.

@@ -1,0 +1,22 @@
+# Build outputs and dependencies are rebuilt inside the image.
+**/bin/
+**/obj/
+**/node_modules/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+
+# Local secrets must never reach the image (VITE_ values are bundled into public JS).
+**/.env.local
+**/.env.*.local
+.env
+# The Dockerfile sets VITE_API_BASE_URL itself.
+frontend/.env
+**/*.user
+
+.git/
+.vs/
+.vscode/
+.idea/
+.claude/
+.agents/

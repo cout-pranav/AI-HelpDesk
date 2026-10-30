@@ -17,6 +17,8 @@ frontend/dist/
 .env.local
 .env.*.local
 backend/**/.env
+# docker compose settings (see .env.example)
+/.env
 
 # Logs
 *.log

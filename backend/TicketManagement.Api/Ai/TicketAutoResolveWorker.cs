@@ -125,34 +125,42 @@ public class TicketAutoResolveWorker(
             return false;
 
         // The status change and the AI's reply are saved together, so a Resolved ticket always shows
-        // the answer that resolved it.
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        var now = DateTime.UtcNow;
-        var updated = await db.Tickets
-            .Where(t => t.Id == ticket.Id && t.Status == TicketStatuses.Processing)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(t => t.Status, TicketStatuses.Resolved)
-                .SetProperty(t => t.ResolvedAt, now)
-                .SetProperty(t => t.ResolvedByAi, true)
-                .SetProperty(t => t.UpdatedAt, now), cancellationToken);
-        if (updated == 0)
-            return false;
-
-        var reply = new TicketMessage
+        // the answer that resolved it. The connection retries transient faults, so the transaction runs
+        // inside the execution strategy, which re-runs the whole block from a clean change tracker.
+        var reply = await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
         {
-            TicketId = ticket.Id,
-            Direction = MessageDirections.Outbound,
-            AuthorId = author.Id,
-            SenderEmail = author.Email,
-            SenderName = author.DisplayName,
-            Body = resolution.Reply,
-            CreatedAt = now,
-            // Emailed like a manual reply.
-            DeliveryStatus = emailOptions.Value.IsConfigured ? MessageDeliveryStatuses.Pending : null,
-        };
-        db.TicketMessages.Add(reply);
-        await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+            db.ChangeTracker.Clear();
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var now = DateTime.UtcNow;
+            var updated = await db.Tickets
+                .Where(t => t.Id == ticket.Id && t.Status == TicketStatuses.Processing)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(t => t.Status, TicketStatuses.Resolved)
+                    .SetProperty(t => t.ResolvedAt, now)
+                    .SetProperty(t => t.ResolvedByAi, true)
+                    .SetProperty(t => t.UpdatedAt, now), cancellationToken);
+            if (updated == 0)
+                return null;
+
+            var message = new TicketMessage
+            {
+                TicketId = ticket.Id,
+                Direction = MessageDirections.Outbound,
+                AuthorId = author.Id,
+                SenderEmail = author.Email,
+                SenderName = author.DisplayName,
+                Body = resolution.Reply,
+                CreatedAt = now,
+                // Emailed like a manual reply.
+                DeliveryStatus = emailOptions.Value.IsConfigured ? MessageDeliveryStatuses.Pending : null,
+            };
+            db.TicketMessages.Add(message);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return message;
+        });
+        if (reply is null)
+            return false;
         if (reply.DeliveryStatus is not null)
             emailQueue.Enqueue(reply.Id);
 

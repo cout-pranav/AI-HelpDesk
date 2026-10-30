@@ -30,7 +30,10 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<TicketManagementDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("TicketManagementDb")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("TicketManagementDb"),
+        // Retries transient faults, e.g. Azure SQL failovers or a serverless database resuming.
+        // Explicit transactions must then run inside db.Database.CreateExecutionStrategy().
+        sql => sql.EnableRetryOnFailure()));
 
 builder.Services.AddCors(options =>
 {
@@ -102,6 +105,19 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// The built frontend (wwwroot, copied in by the Dockerfile or the Azure deploy workflow) is served from the same origin as the
+// API. Vite's hashed /assets files never change, so they're cached for good; everything else
+// (index.html) is revalidated so a new deploy is picked up. Without a wwwroot (local dev, E2E)
+// this does nothing and the frontend runs on the Vite dev server.
+var frontendFileOptions = new StaticFileOptions
+{
+    OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl =
+        ctx.Context.Request.Path.StartsWithSegments("/assets")
+            ? "public, max-age=31536000, immutable"
+            : "no-cache",
+};
+app.UseStaticFiles(frontendFileOptions);
+
 app.UseCors(FrontendCorsPolicy);
 
 app.UseRateLimiter();
@@ -117,5 +133,10 @@ app.MapUserEndpoints();
 app.MapInboundEmailEndpoints();
 app.MapTicketEndpoints();
 app.MapDashboardEndpoints();
+
+// Client-side routes (/tickets/42, /users, ...) get the SPA's index.html; unknown API paths stay 404
+// instead of returning the page.
+app.MapFallback("/api/{**path}", () => Results.NotFound());
+app.MapFallbackToFile("index.html", frontendFileOptions);
 
 app.Run();
