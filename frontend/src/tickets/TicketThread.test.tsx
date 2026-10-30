@@ -1,5 +1,6 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { renderWithQueryClient } from '@/test/renderWithQueryClient'
 import { makeTicket } from '@/test/ticketFixtures'
 import type { TicketMessage } from '@/types/ticket'
 import { TicketThread } from './TicketThread'
@@ -12,6 +13,7 @@ const customerMessage: TicketMessage = {
   body: 'I was charged twice.\nPlease refund one.',
   attachmentNames: ['receipt.pdf', 'statement.png'],
   createdAt: '2026-10-05T14:30:00Z',
+  deliveryStatus: null,
 }
 
 const reply: TicketMessage = {
@@ -22,6 +24,7 @@ const reply: TicketMessage = {
   body: 'Refund issued.',
   attachmentNames: [],
   createdAt: '2026-10-06T10:00:00Z',
+  deliveryStatus: 'sent',
 }
 
 // The thread's own items, not the attachment badges nested inside them.
@@ -33,7 +36,7 @@ function threadItems() {
 
 describe('TicketThread', () => {
   it('shows a message when there are no messages', () => {
-    render(<TicketThread ticket={makeTicket({ messages: [] })} />)
+    renderWithQueryClient(<TicketThread ticket={makeTicket({ messages: [] })} />)
 
     expect(screen.getByText('No messages.')).toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
@@ -48,7 +51,7 @@ describe('TicketThread', () => {
       createdAt: '2026-10-06T09:00:00Z',
     }
 
-    render(<TicketThread ticket={makeTicket({ messages: [customerMessage, followUp] })} />)
+    renderWithQueryClient(<TicketThread ticket={makeTicket({ messages: [customerMessage, followUp] })} />)
 
     const [first, second] = threadItems()
     expect(within(first).getByText('Jane Student')).toBeInTheDocument()
@@ -70,7 +73,7 @@ describe('TicketThread', () => {
 
   it('falls back to the email when the sender has no name', () => {
     const ticket = makeTicket({ messages: [{ ...customerMessage, senderName: null }] })
-    render(<TicketThread ticket={ticket} />)
+    renderWithQueryClient(<TicketThread ticket={ticket} />)
 
     const [message] = threadItems()
     expect(message).toHaveAccessibleName('Message from jane@example.com')
@@ -78,7 +81,7 @@ describe('TicketThread', () => {
   })
 
   it('labels agent replies and marks them with a Reply badge', () => {
-    render(<TicketThread ticket={makeTicket({ messages: [customerMessage, reply] })} />)
+    renderWithQueryClient(<TicketThread ticket={makeTicket({ messages: [customerMessage, reply] })} />)
 
     const items = threadItems()
     expect(items.map((li) => li.getAttribute('aria-label'))).toEqual([
@@ -88,5 +91,15 @@ describe('TicketThread', () => {
     expect(within(items[0]).queryByText('Reply')).not.toBeInTheDocument()
     expect(within(items[1]).getByText('Reply')).toBeInTheDocument()
     expect(within(items[1]).getByText('Refund issued.')).toBeInTheDocument()
+  })
+
+  // Each delivery status is covered by ReplyDeliveryStatus.test.tsx.
+  it('shows whether replies were emailed, but not on customer messages', () => {
+    renderWithQueryClient(<TicketThread ticket={makeTicket({ messages: [customerMessage, reply] })} />)
+
+    const [message, replyItem] = threadItems()
+    expect(within(replyItem).getByText('Emailed')).toBeInTheDocument()
+    expect(within(message).queryByText('Emailed')).not.toBeInTheDocument()
+    expect(within(message).queryByText('Not emailed')).not.toBeInTheDocument()
   })
 })

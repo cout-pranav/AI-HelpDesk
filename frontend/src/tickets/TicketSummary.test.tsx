@@ -19,6 +19,7 @@ const message: TicketMessage = {
   body: 'I was charged twice.',
   attachmentNames: [],
   createdAt: '2026-10-05T14:30:00Z',
+  deliveryStatus: null,
 }
 const ticket = makeTicket({ messages: [message] })
 

@@ -3,7 +3,7 @@ import type { AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, ApiError } from '@/lib/api'
 import { renderWithQueryClient } from '@/test/renderWithQueryClient'
-import type { TicketDetailData } from '@/types/ticket'
+import type { TicketDetailData, TicketMessage } from '@/types/ticket'
 import { TicketDetail } from './TicketDetail'
 
 // Keep the real ApiError (the component checks instanceof) and stub only the HTTP call.
@@ -38,6 +38,7 @@ const ticket: TicketDetailData = {
       body: 'I was charged twice.\nPlease refund one.',
       attachmentNames: ['receipt.pdf', 'statement.png'],
       createdAt: '2026-10-05T14:30:00Z',
+      deliveryStatus: null,
     },
   ],
 }
@@ -97,6 +98,54 @@ describe('TicketDetail', () => {
     const thread = await screen.findByRole('region', { name: 'Messages' })
     expect(within(thread).getByRole('listitem', { name: 'Message from Jane Student' })).toBeInTheDocument()
     expect(screen.getByRole('form', { name: 'Reply to customer' })).toBeInTheDocument()
+  })
+
+  describe('while a reply is being emailed', () => {
+    const reply: TicketMessage = {
+      ...ticket.messages[0],
+      id: 9,
+      direction: 'outbound',
+      senderEmail: 'alex@example.com',
+      senderName: 'Alex Agent',
+      body: 'Refund issued.',
+      attachmentNames: [],
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      return () => vi.useRealTimers()
+    })
+
+    it('polls the ticket until the email is no longer pending', async () => {
+      getMock
+        .mockResolvedValueOnce({
+          data: { ...ticket, messages: [{ ...reply, deliveryStatus: 'pending' }] },
+        } as AxiosResponse<TicketDetailData>)
+        .mockResolvedValue({
+          data: { ...ticket, messages: [{ ...reply, deliveryStatus: 'sent' }] },
+        } as AxiosResponse<TicketDetailData>)
+
+      renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} agentName="Alex Agent" />)
+
+      expect(await screen.findByText('Sending email…')).toBeInTheDocument()
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(await screen.findByText('Emailed')).toBeInTheDocument()
+      expect(getMock).toHaveBeenCalledTimes(2)
+
+      // Nothing is pending any more, so it stops polling.
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(getMock).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not poll when no email is pending', async () => {
+      respondWith({ ...ticket, messages: [{ ...reply, deliveryStatus: 'failed' }] })
+
+      renderWithQueryClient(<TicketDetail ticketId={42} canAssign={false} agentName="Alex Agent" />)
+
+      expect(await screen.findByText('Email failed')).toBeInTheDocument()
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(getMock).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('shows an assignee picker when canAssign is set', async () => {
